@@ -6,31 +6,72 @@ export const StartedStateIcon: React.FC<Props> = ({
   width = "20",
   height = "20",
   className,
-  color = "#fcbe1d",
+  color = "#fbb040",
 }) => (
   <svg
     width={width}
     height={height}
     className={className}
-    viewBox="0 0 20 20"
-    fill="none"
     xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 83.36 83.36"
   >
-    <circle
-      cx="10"
-      cy="10"
-      r="9"
-      stroke={color}
-      strokeLinecap="round"
-      strokeDasharray="0 20 0 10"
-    />
-    <path
-      d="M14.2878 4.46695C13.0513 3.5087 11.5294 2.99227 9.96503 3.00009C8.40068 3.0079 6.88403 3.53951 5.65713 4.51006L10 10L14.2878 4.46695Z"
-      fill={color}
-    />
-    <path
-      d="M5.70047 15.5331C6.93701 16.4913 8.45889 17.0077 10.0232 16.9999C11.5876 16.9921 13.1043 16.4605 14.3312 15.4899L9.98828 10L5.70047 15.5331Z"
-      fill={color}
-    />
+    <g id="Layer_2" data-name="Layer 2">
+      <g id="Layer_1-2" data-name="Layer 1">
+        <path
+          className="cls-1"
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M20,7.19a39.74,39.74,0,0,1,43.43.54"
+        />
+        <path
+          className="cls-1"
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M76.17,20a39.76,39.76,0,0,1-.53,43.43"
+        />
+        <path
+          className="cls-1"
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M63.42,76.17A39.78,39.78,0,0,1,20,75.64"
+        />
+        <path
+          className="cls-1"
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M7.19,63.42A39.75,39.75,0,0,1,7.73,20"
+        />
+        <path
+          className="cls-2"
+          fill={color}
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M42.32,41.21q9.57-14.45,19.13-28.9a35.8,35.8,0,0,0-39.09,0Z"
+        />
+        <path
+          className="cls-2"
+          fill={color}
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={3}
+          d="M42.32,41.7,61.45,70.6a35.75,35.75,0,0,1-39.09,0Z"
+        />
+      </g>
+    </g>
   </svg>
 );
