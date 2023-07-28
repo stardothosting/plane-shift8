@@ -15,12 +15,12 @@ import useUserAuth from "hooks/use-user-auth";
 // components
 import { AllViews, FiltersList } from "components/core";
 import { CreateUpdateIssueModal, DeleteIssueModal } from "components/issues";
-import { CreateUpdateViewModal } from "components/views";
+// helpers
+import { orderArrayBy } from "helpers/array.helper";
 // types
 import { IIssue, IIssueFilterOptions } from "types";
 // fetch-keys
 import { USER_ISSUES, WORKSPACE_LABELS } from "constants/fetch-keys";
-import { orderArrayBy } from "helpers/array.helper";
 
 type Props = {
   openIssuesListModal?: () => void;
@@ -33,7 +33,6 @@ export const MyIssuesView: React.FC<Props> = ({
 }) => {
   // create issue modal
   const [createIssueModal, setCreateIssueModal] = useState(false);
-  const [createViewModal, setCreateViewModal] = useState<any>(null);
   const [preloadedData, setPreloadedData] = useState<
     (Partial<IIssue> & { actionType: "createIssue" | "edit" | "delete" }) | undefined
   >(undefined);
@@ -56,15 +55,15 @@ export const MyIssuesView: React.FC<Props> = ({
 
   const { user } = useUserAuth();
 
-  const { groupedIssues, isEmpty, params } = useMyIssues(workspaceSlug?.toString());
+  const { groupedIssues, mutateMyIssues, isEmpty, params } = useMyIssues(workspaceSlug?.toString());
   const { filters, setFilters, issueView, groupBy, orderBy, properties, showEmptyGroups } =
     useMyIssuesFilters(workspaceSlug?.toString());
 
   const { data: labels } = useSWR(
-    workspaceSlug && (filters.labels ?? []).length > 0
+    workspaceSlug && (filters?.labels ?? []).length > 0
       ? WORKSPACE_LABELS(workspaceSlug.toString())
       : null,
-    workspaceSlug && (filters.labels ?? []).length > 0
+    workspaceSlug && (filters?.labels ?? []).length > 0
       ? () => issuesService.getWorkspaceLabels(workspaceSlug.toString())
       : null
   );
@@ -80,7 +79,6 @@ export const MyIssuesView: React.FC<Props> = ({
   const handleOnDragEnd = useCallback(
     async (result: DropResult) => {
       setTrashBox(false);
-      console.log(result);
 
       if (!result.destination || !workspaceSlug || !groupedIssues || groupBy !== "priority") return;
 
@@ -212,23 +210,23 @@ export const MyIssuesView: React.FC<Props> = ({
 
   return (
     <>
-      <CreateUpdateViewModal
-        isOpen={createViewModal !== null}
-        handleClose={() => setCreateViewModal(null)}
-        preLoadedData={createViewModal}
-        user={user}
-      />
       <CreateUpdateIssueModal
         isOpen={createIssueModal && preloadedData?.actionType === "createIssue"}
         handleClose={() => setCreateIssueModal(false)}
         prePopulateData={{
           ...preloadedData,
         }}
+        onSubmit={async () => {
+          mutateMyIssues();
+        }}
       />
       <CreateUpdateIssueModal
         isOpen={editIssueModal && issueToEdit?.actionType !== "delete"}
         handleClose={() => setEditIssueModal(false)}
         data={issueToEdit}
+        onSubmit={async () => {
+          mutateMyIssues();
+        }}
       />
       <DeleteIssueModal
         handleClose={() => setDeleteIssueModal(false)}
@@ -275,6 +273,7 @@ export const MyIssuesView: React.FC<Props> = ({
           groupedIssues,
           isEmpty,
           issueView,
+          mutateIssues: mutateMyIssues,
           orderBy,
           params,
           properties,
