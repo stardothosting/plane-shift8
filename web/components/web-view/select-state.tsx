@@ -57,11 +57,11 @@ export const StateSelect: React.FC<Props> = (props) => {
         }}
       >
         <WebViewModal.Options
-          selectedOption={selectedState?.id || null}
           options={
             states?.map((state) => ({
               label: state.name,
               value: state.id,
+              checked: state.id === selectedState?.id,
               icon: getStateGroupIcon(state.group, "16", "16", state.color),
               onClick: () => {
                 setIsOpen(false);
