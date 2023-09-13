@@ -15,14 +15,14 @@ export const FilterCreatedBy = observer(() => {
   const store: RootStore = useMobxStore();
   const { issueFilters: issueFilterStore, issueView: issueStore } = store;
 
-  const [previewEnabled, setPreviewEnabled] = React.useState(false);
+  const [previewEnabled, setPreviewEnabled] = React.useState(true);
 
   return (
     <div>
       <FilterHeader
         title={"Created By"}
         isPreviewEnabled={previewEnabled}
-        handleIsPreviewEnabled={setPreviewEnabled}
+        handleIsPreviewEnabled={() => setPreviewEnabled(!previewEnabled)}
       />
       {previewEnabled && (
         <div className="space-y-[2px] pt-1">
@@ -31,7 +31,12 @@ export const FilterCreatedBy = observer(() => {
             issueFilterStore?.projectMembers.map((_member) => (
               <FilterOption
                 key={`create-by-${_member?.member?.id}`}
-                isChecked={false}
+                isChecked={
+                  issueFilterStore?.userFilters?.filters?.created_by != null &&
+                  issueFilterStore?.userFilters?.filters?.created_by.includes(_member?.member?.id)
+                    ? true
+                    : false
+                }
                 icon={
                   <MemberIcons
                     display_name={_member?.member.display_name}
