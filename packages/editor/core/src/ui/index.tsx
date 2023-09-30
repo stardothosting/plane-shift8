@@ -1,17 +1,13 @@
 "use client"
 import * as React from 'react';
-import { useImperativeHandle, useRef, forwardRef } from "react";
-import { useEditor, EditorContent, Editor } from "@tiptap/react";
-import { useDebouncedCallback } from "use-debounce";
-import { TableMenu } from '@/ui/menus/table-menu';
-import { TiptapExtensions } from '@/ui/extensions';
-import { EditorBubbleMenu } from '@/ui/menus/bubble-menu';
-import { ImageResizer } from '@/ui/extensions/image/image-resize';
-import { TiptapEditorProps } from '@/ui/props';
+import { Extension } from "@tiptap/react";
 import { UploadImage } from '@/types/upload-image';
 import { DeleteImage } from '@/types/delete-image';
-import { cn } from '@/lib/utils';
-import { FixedMenu } from './menus/fixed-menu';
+import { getEditorClassNames } from '@/lib/utils';
+import { EditorProps } from '@tiptap/pm/view';
+import { useEditor } from './hooks/useEditor';
+import { EditorContainer } from '@/ui/editor-container';
+import { EditorContentWrapper } from '@/ui/editor-content';
 
 interface ITiptapEditor {
   value: string;
@@ -34,6 +30,8 @@ interface ITiptapEditor {
     key: string;
     label: "Private" | "Public";
   }[];
+  extensions?: Extension[];
+  editorProps?: EditorProps;
 }
 
 interface TiptapProps extends ITiptapEditor {
@@ -44,8 +42,6 @@ interface EditorHandle {
   clearEditor: () => void;
   setEditorValue: (content: string) => void;
 }
-
-const DEBOUNCE_DELAY = 1500;
 
 const TiptapEditor = ({
   onChange,
@@ -61,79 +57,33 @@ const TiptapEditor = ({
   borderOnFocus,
   customClassName,
   forwardedRef,
-  accessValue,
-  onAccessChange,
-  commentAccess,
 }: TiptapProps) => {
   const editor = useEditor({
-    editable: editable ?? true,
-    editorProps: TiptapEditorProps(uploadFile, setIsSubmitting),
-    extensions: TiptapExtensions(uploadFile, deleteFile, setIsSubmitting),
-    content: (typeof value === "string" && value.trim() !== "") ? value : "<p></p>",
-    onUpdate: async ({ editor }) => {
-      // for instant feedback loop
-      setIsSubmitting?.("submitting");
-      setShouldShowAlert?.(true);
-      if (debouncedUpdatesEnabled) {
-        debouncedUpdates({ onChange, editor });
-      } else {
-        onChange?.(editor.getJSON(), editor.getHTML());
-      }
-    },
+    onChange,
+    debouncedUpdatesEnabled,
+    editable,
+    setIsSubmitting,
+    setShouldShowAlert,
+    value,
+    uploadFile,
+    deleteFile,
+    forwardedRef,
   });
 
-  const editorRef: React.MutableRefObject<Editor | null> = useRef(null);
-  editorRef.current = editor;
-
-  useImperativeHandle(forwardedRef, () => ({
-    clearEditor: () => {
-      editorRef.current?.commands.clearContent();
-    },
-    setEditorValue: (content: string) => {
-      editorRef.current?.commands.setContent(content);
-    },
-  }));
-
-  const debouncedUpdates = useDebouncedCallback(async ({ onChange, editor }) => {
-    if (onChange) {
-      onChange(editor.getJSON(), editor.getHTML());
-    }
-  }, DEBOUNCE_DELAY);
-
-  const editorClassNames = cn(
-    'relative w-full max-w-full sm:rounded-lg mt-2 p-3 relative focus:outline-none rounded-md',
-    noBorder ? '' : 'border border-custom-border-200',
-    borderOnFocus ? 'focus:border border-custom-border-300' : 'focus:border-0',
-    customClassName
-  );
+  const editorClassNames = getEditorClassNames({ noBorder, borderOnFocus, customClassName });
 
   if (!editor) return null;
 
   return (
-    <div
-      id="tiptap-container"
-      onClick={() => {
-        editor?.chain().focus().run();
-      }}
-      className={`tiptap-editor-container cursor-text ${editorClassNames}`}
-    >
+    <EditorContainer editor={editor} editorClassNames={editorClassNames}>
       <div className="flex flex-col">
-        <div className={`${editorContentCustomClassNames}`}>
-          <EditorContent editor={editor} />
-          <TableMenu editor={editor} />
-          {editor?.isActive("image") && <ImageResizer editor={editor} />}
-        </div>
-        {editor && editable !== false &&
-          (<div className="w-full mt-4">
-            <FixedMenu editor={editor} commentAccess={commentAccess} accessValue={accessValue} onAccessChange={onAccessChange} />
-          </div>)
-        }
+        <EditorContentWrapper editor={editor} editorContentCustomClassNames={editorContentCustomClassNames} />
       </div>
-    </div>
+    </EditorContainer >
   );
 };
 
-const TiptapEditorWithRef = forwardRef<EditorHandle, ITiptapEditor>((props, ref) => (
+const TiptapEditorWithRef = React.forwardRef<EditorHandle, ITiptapEditor>((props, ref) => (
   <TiptapEditor {...props} forwardedRef={ref} />
 ));
 
