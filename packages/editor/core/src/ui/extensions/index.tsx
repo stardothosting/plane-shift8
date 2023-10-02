@@ -8,9 +8,9 @@ import TaskList from "@tiptap/extension-task-list";
 import { Markdown } from "tiptap-markdown";
 import Gapcursor from "@tiptap/extension-gapcursor";
 
-import { CustomTableCell } from "./table/table-cell";
-import { Table } from "./table/table";
-import { TableHeader } from "./table/table-header";
+import { CustomTableCell } from "@/ui/extensions/table/table-cell";
+import { Table } from "@/ui/extensions/table";
+import { TableHeader } from "@/ui/extensions/table/table-header";
 import { TableRow } from "@tiptap/extension-table-row";
 
 import ImageExtension from "@/ui/extensions/image";
