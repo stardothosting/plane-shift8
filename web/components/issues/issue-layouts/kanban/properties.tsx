@@ -197,9 +197,3 @@ export const KanBanProperties: React.FC<IKanBanProperties> = observer(
     );
   }
 );
-
-created_on: true;
-updated_on: true;
-due_date: true;
-
-key: true;
