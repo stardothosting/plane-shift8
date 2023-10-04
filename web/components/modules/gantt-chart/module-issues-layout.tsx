@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 // hooks
 import useIssuesView from "hooks/use-issues-view";
 import useUser from "hooks/use-user";
-import useGanttChartModuleIssues from "hooks/gantt-chart/module-issues-view";
 import useProjectDetails from "hooks/use-project-details";
 // components
 import { GanttChartRoot, renderIssueBlocksStructure } from "components/gantt-chart";
@@ -22,18 +21,11 @@ export const ModuleIssuesGanttChartView: React.FC<Props> = ({ disableUserActions
   const { user } = useUser();
   const { projectDetails } = useProjectDetails();
 
-  const { ganttIssues, mutateGanttIssues } = useGanttChartModuleIssues(
-    workspaceSlug as string,
-    projectId as string,
-    moduleId as string
-  );
-
   const isAllowed = projectDetails?.member_role === 20 || projectDetails?.member_role === 15;
 
   return (
     <>
       <IssuePeekOverview
-        handleMutation={() => mutateGanttIssues()}
         projectId={projectId?.toString() ?? ""}
         workspaceSlug={workspaceSlug?.toString() ?? ""}
         readOnly={disableUserActions}
@@ -43,7 +35,7 @@ export const ModuleIssuesGanttChartView: React.FC<Props> = ({ disableUserActions
           border={false}
           title="Issues"
           loaderTitle="Issues"
-          blocks={ganttIssues ? renderIssueBlocksStructure(ganttIssues as IIssue[]) : null}
+          blocks={null}
           blockUpdateHandler={(block, payload) => {}}
           SidebarBlockRender={IssueGanttSidebarBlock}
           BlockRender={IssueGanttBlock}
