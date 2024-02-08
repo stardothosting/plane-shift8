@@ -14,14 +14,15 @@ import { TViewOperations } from "../../types";
 type TViewDropdown = {
   workspaceSlug: string;
   projectId: string | undefined;
-  viewId: string | undefined;
+  viewId: string;
   viewType: TViewTypes;
   viewOperations: TViewOperations;
   children?: ReactNode;
+  baseRoute: string;
 };
 
 export const ViewDropdown: FC<TViewDropdown> = (props) => {
-  const { workspaceSlug, projectId, viewId: currentViewId, viewType, viewOperations, children } = props;
+  const { workspaceSlug, projectId, viewId: currentViewId, viewType, viewOperations, children, baseRoute } = props;
   // hooks
   const viewStore = useView(workspaceSlug, projectId, viewType);
   // states
@@ -105,6 +106,7 @@ export const ViewDropdown: FC<TViewDropdown> = (props) => {
                       viewType={viewType}
                       currentViewId={currentViewId}
                       searchQuery={query}
+                      baseRoute={baseRoute}
                     />
                   </Fragment>
                 ))}
