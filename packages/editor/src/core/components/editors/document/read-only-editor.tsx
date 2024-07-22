@@ -7,58 +7,43 @@ import { IssueWidget } from "@/extensions";
 import { getEditorClassNames } from "@/helpers/common";
 // hooks
 import { useReadOnlyEditor } from "@/hooks/use-read-only-editor";
-// plane web types
-import { TEmbedConfig } from "@/plane-editor/types";
 // types
-import { EditorReadOnlyRefApi, IMentionHighlight } from "@/types";
-
-interface IDocumentReadOnlyEditor {
-  initialValue: string;
-  containerClassName: string;
-  editorClassName?: string;
-  embedHandler: TEmbedConfig;
-  tabIndex?: number;
-  handleEditorReady?: (value: boolean) => void;
-  mentionHandler: {
-    highlights: () => Promise<IMentionHighlight[]>;
-  };
-  forwardedRef?: React.MutableRefObject<EditorReadOnlyRefApi | null>;
-}
+import { EditorReadOnlyRefApi, IDocumentReadOnlyEditor } from "@/types";
 
 const DocumentReadOnlyEditor = (props: IDocumentReadOnlyEditor) => {
   const {
     containerClassName,
     editorClassName = "",
     embedHandler,
-    initialValue,
     forwardedRef,
-    tabIndex,
     handleEditorReady,
+    initialValue,
     mentionHandler,
   } = props;
+  const extensions = [];
+  if (embedHandler?.issue) {
+    extensions.push(
+      IssueWidget({
+        widgetCallback: embedHandler.issue.widgetCallback,
+      })
+    );
+  }
+
   const editor = useReadOnlyEditor({
-    initialValue,
     editorClassName,
-    mentionHandler,
+    extensions,
     forwardedRef,
     handleEditorReady,
-    extensions: [
-      embedHandler?.issue &&
-        IssueWidget({
-          widgetCallback: embedHandler?.issue.widgetCallback,
-        }),
-    ],
+    initialValue,
+    mentionHandler,
   });
-
-  if (!editor) {
-    return null;
-  }
 
   const editorContainerClassName = getEditorClassNames({
     containerClassName,
   });
 
-  return <PageRenderer tabIndex={tabIndex} editor={editor} editorContainerClassName={editorContainerClassName} />;
+  if (!editor) return null;
+  return <PageRenderer editor={editor} editorContainerClassName={editorContainerClassName} />;
 };
 
 const DocumentReadOnlyEditorWithRef = forwardRef<EditorReadOnlyRefApi, IDocumentReadOnlyEditor>((props, ref) => (
