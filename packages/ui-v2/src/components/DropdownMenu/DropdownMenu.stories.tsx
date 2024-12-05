@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
-import React from "react";
-import { SelectDropdown } from "./DropdownMenu";
+import React, { useState } from "react";
+import { DropdownMenu } from "./DropdownMenu";
+import { DropdownButton } from "./DropdownButton";
+import { DropdownContent } from "./DropdownContent";
+
 // import { SelectDropdown } from "./DropdownMenu-copy";
 const fruits = [
   {
@@ -74,12 +77,89 @@ const fruits = [
     description:
       "A bright yellow citrus fruit with a tart flavor, commonly used in drinks and cooking.",
   },
+  {
+    id: 11,
+    name: "Mango",
+    emoji: "🥭",
+  },
+
+  // Add 10 vegetables
+  {
+    id: 12,
+    name: "Carrot",
+    emoji: "🥕",
+    description:
+      "A crunchy orange root vegetable, rich in beta-carotene and vitamin A.",
+  },
+  {
+    id: 13,
+    name: "Broccoli",
+    emoji: "🥦",
+    description:
+      "A green vegetable with dense, nutritious florets, high in fiber and vitamins.",
+  },
+  {
+    id: 14,
+    name: "Tomato",
+    emoji: "🍅",
+    description:
+      "Technically a fruit, but commonly used as a vegetable in cooking.",
+  },
+  {
+    id: 15,
+    name: "Eggplant",
+    emoji: "🍆",
+    description:
+      "A purple vegetable with a meaty texture, popular in Mediterranean cuisine.",
+  },
+  {
+    id: 16,
+    name: "Corn",
+    emoji: "🌽",
+    description:
+      "Sweet yellow kernels on a cob, enjoyed grilled, boiled, or popped.",
+  },
+  {
+    id: 17,
+    name: "Bell Pepper",
+    emoji: "🫑",
+    description:
+      "A crisp, colorful vegetable that can be sweet or slightly bitter.",
+  },
+  {
+    id: 18,
+    name: "Cucumber",
+    emoji: "🥒",
+    description:
+      "A refreshing green vegetable with high water content, often used in salads.",
+  },
+  {
+    id: 19,
+    name: "Potato",
+    emoji: "🥔",
+    description:
+      "A starchy root vegetable that can be prepared in countless ways.",
+  },
+  {
+    id: 20,
+    name: "Mushroom",
+    emoji: "🍄",
+    description:
+      "Technically a fungus, but commonly used as a vegetable in cooking.",
+  },
+  {
+    id: 21,
+    name: "Onion",
+    emoji: "🧅",
+    description:
+      "A pungent bulb vegetable used as a base in many cuisines worldwide.",
+  },
 ];
 
 // More on how to set up stories at: https://storybook.js.org/docs/writing-stories#default-export
 const meta = {
-  title: "Example/SelectMenuOld",
-  component: SelectDropdown,
+  title: "Example/DropdownMenu",
+  component: DropdownMenu,
   parameters: {
     // Optional parameter to center the component in the Canvas. More info: https://storybook.js.org/docs/configure/story-layout
     layout: "centered",
@@ -92,24 +172,38 @@ const meta = {
   },
   // Use `fn` to spy on the onClick arg, which will appear in the actions panel once invoked: https://storybook.js.org/docs/essentials/actions#action-args
   args: { onChange: fn() },
-} satisfies Meta<typeof SelectDropdown>;
+} satisfies Meta<typeof DropdownMenu>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 // More on writing stories with args: https://storybook.js.org/docs/writing-stories/args
-export const Primary: Story = {
-  args: {
-    items: fruits,
-    value: ["1"],
-    keyExtractor: (item) => item.name,
-    renderItem: (item) => <Fruit fruit={item} />,
-    portal: document.getElementById("portal-root"),
-  },
+export const MultiSelect = () => {
+  const [value, setValue] = useState([fruits[6]]);
+  return (
+    <DropdownMenu
+      items={fruits}
+      onSelect={undefined}
+      onChange={(value: any) => setValue(value)}
+      value={value}
+      multiple={true}
+      defaultOpen={true}
+      renderItem={(item) => <Fruit fruit={item} />}
+    >
+      <DropdownButton showIcon>
+        <div className="flex items-center gap-2 justify-between">
+          <Fruit fruit={fruits[1]} />({value.length})
+        </div>
+      </DropdownButton>
+      {/* <DropdownContent>
+        <input
+          type="text"
+          className="w-full border border-cyan-500 rounded mb-2"
+        />
+      </DropdownContent> */}
+    </DropdownMenu>
+  );
 };
-
-// const Hello = () => <div>Hello</div>;
-
 const Fruit = ({ fruit }) => {
   return <div>{`${fruit.emoji} ${fruit.name}`}</div>;
 };
