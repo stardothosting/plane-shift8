@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from "axios";
-import { LinearTeam, LinearState } from "@silo/linear";
+import { LinearTeam, LinearState, LinearOrganization } from "@silo/linear";
 
 export class LinearService {
   protected baseURL: string;
@@ -10,6 +10,15 @@ export class LinearService {
     this.axiosInstance = axios.create({ baseURL });
   }
 
+  async getOrganizations(workspaceId: string, userId: string): Promise<LinearOrganization | undefined> {
+    return this.axiosInstance
+      .get(`/api/linear/org?workspaceId=${workspaceId}&userId=${userId}`)
+      .then((res) => res.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
   /**
    * @description get teams
    * @property workspaceId: string
@@ -18,7 +27,7 @@ export class LinearService {
    */
   async getTeams(workspaceId: string, userId: string): Promise<LinearTeam[] | undefined> {
     return this.axiosInstance
-      .post(`/silo/api/linear/teams`, { workspaceId, userId })
+      .post(`/api/linear/teams`, { workspaceId, userId })
       .then((res) => res.data)
       .catch((error) => {
         throw error?.response?.data;
@@ -34,7 +43,7 @@ export class LinearService {
    */
   async getTeamStates(workspaceId: string, userId: string, teamId: string): Promise<LinearState[] | undefined> {
     return this.axiosInstance
-      .post(`/silo/api/linear/team-states`, { workspaceId, userId, teamId })
+      .post(`/api/linear/team-states`, { workspaceId, userId, teamId })
       .then((res) => res.data)
       .catch((error) => {
         throw error?.response?.data;
@@ -50,7 +59,7 @@ export class LinearService {
    */
   async getTeamIssueCount(workspaceId: string, userId: string, teamId: string): Promise<number | undefined> {
     return this.axiosInstance
-      .post(`/silo/api/linear/team-issue-count`, { workspaceId, userId, teamId })
+      .post(`/api/linear/team-issue-count`, { workspaceId, userId, teamId })
       .then((res) => res.data)
       .catch((error) => {
         throw error?.response?.data;
