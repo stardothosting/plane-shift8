@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
         # Trigger the member sync task with the workspace slug
         schedule_workspace_license_free_seats.delay(
-            batch_size=int(batch_size), countdown=int(batch_countdown)
+            batch_size=int(batch_size), batch_countdown=int(batch_countdown)
         )
 
         # Print the success message
