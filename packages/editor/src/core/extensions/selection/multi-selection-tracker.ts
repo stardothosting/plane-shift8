@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey, NodeSelection } from "@tiptap/pm/state";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { EditorView, Decoration, DecorationSet } from "@tiptap/pm/view";
 
 const MultipleSelectionPluginKey = new PluginKey("multipleSelection");
@@ -17,6 +17,50 @@ const lastActiveSelection = {
 
 let isDragging = false;
 let selectNodesHandler: (event: MouseEvent) => void;
+let scrollAnimationFrame: number | null = null;
+let lastClientY = 0;
+let currentScrollSpeed = 0;
+const maxScrollSpeed = 20;
+const acceleration = 0.5;
+let cachedScrollParent = null;
+
+function easeOutQuadAnimation(t: number) {
+  return t * (2 - t);
+}
+
+const scrollParentCache = new WeakMap();
+
+const getScrollParent = (element) => {
+  if (cachedScrollParent) {
+    return cachedScrollParent;
+  }
+
+  if (!element) return null;
+
+  let currentParent = element.parentElement;
+
+  while (currentParent) {
+    if (isScrollable(currentParent)) {
+      cachedScrollParent = currentParent;
+      return cachedScrollParent;
+    }
+    currentParent = currentParent.parentElement;
+  }
+
+  cachedScrollParent = document.scrollingElement || document.documentElement;
+  return cachedScrollParent;
+};
+
+const isScrollable = (node) => {
+  if (!(node instanceof HTMLElement || node instanceof SVGElement)) {
+    return false;
+  }
+  const style = getComputedStyle(node);
+  return ["overflow", "overflow-y"].some((propertyName) => {
+    const value = style.getPropertyValue(propertyName);
+    return value === "auto" || value === "scroll";
+  });
+};
 
 const updateCursorPosition = (event: MouseEvent, view: EditorView) => {
   if (!activeCursor) return;
@@ -44,18 +88,52 @@ const updateCursorPosition = (event: MouseEvent, view: EditorView) => {
   activeCursor.style.height = `${newHeight}px`;
   activeCursor.style.width = `${newWidth}px`;
 
-  const editorContainer = view.dom.parentElement;
-  if (editorContainer) {
-    const containerRect = editorContainer.getBoundingClientRect();
-    const mouseY = event.clientY;
+  lastClientY = event.clientY;
 
-    if (mouseY > containerRect.bottom - 50) {
-      editorContainer.scrollBy(0, 10);
-    } else if (mouseY < containerRect.top + 50) {
-      editorContainer.scrollBy(0, -10);
-    }
+  if (!scrollAnimationFrame) {
+    scrollAnimationFrame = requestAnimationFrame(scroll);
   }
 };
+
+function scroll() {
+  if (!isDragging) {
+    currentScrollSpeed = 0;
+    scrollAnimationFrame = null;
+    return;
+  }
+
+  const editorContainer = document.querySelector(".editor-container"); // Assuming the editor container has a class 'ProseMirror'
+  const scrollableParent = getScrollParent(editorContainer);
+
+  if (!scrollableParent) {
+    scrollAnimationFrame = requestAnimationFrame(scroll);
+    return;
+  }
+
+  console.log("scrollableParent", scrollableParent);
+  const scrollRegionUp = 150;
+  const scrollRegionDown = scrollableParent.clientHeight - 100;
+
+  let targetScrollAmount = 0;
+
+  if (lastClientY < scrollRegionUp) {
+    const ratio = easeOutQuadAnimation((scrollRegionUp - lastClientY) / scrollRegionUp);
+    targetScrollAmount = -maxScrollSpeed * ratio;
+  } else if (lastClientY > scrollRegionDown) {
+    const ratio = easeOutQuadAnimation(
+      (lastClientY - scrollRegionDown) / (scrollableParent.clientHeight - scrollRegionDown)
+    );
+    targetScrollAmount = maxScrollSpeed * ratio;
+  }
+
+  currentScrollSpeed += (targetScrollAmount - currentScrollSpeed) * acceleration;
+
+  if (Math.abs(currentScrollSpeed) > 0.1) {
+    scrollableParent.scrollBy(0, currentScrollSpeed);
+  }
+
+  scrollAnimationFrame = requestAnimationFrame(scroll);
+}
 
 const getNodesInRect = (view: EditorView, rect: DOMRect) => {
   const ranges: Array<[number, number]> = [];
@@ -91,13 +169,20 @@ const getNodesInRect = (view: EditorView, rect: DOMRect) => {
   return ranges;
 };
 
-const removeActiveUser = () => {
+const removeActiveUser = (view?: EditorView) => {
   if (!activeCursor) return;
 
   activeCursor.remove();
   activeCursor = null;
   document.removeEventListener("mousemove", selectNodesHandler);
-  document.removeEventListener("mouseup", removeActiveUser);
+  document.removeEventListener("mouseup", () => removeActiveUser(view));
+
+  if (scrollAnimationFrame) {
+    cancelAnimationFrame(scrollAnimationFrame);
+    scrollAnimationFrame = null;
+  }
+
+  isDragging = false;
 };
 
 const createMultipleSelectionPlugin = () =>
@@ -119,7 +204,6 @@ const createMultipleSelectionPlugin = () =>
       handleDOMEvents: {
         mousedown(view: EditorView, event: MouseEvent) {
           if (!isDragging) {
-            console.log("ran");
             const pluginState = MultipleSelectionPluginKey.getState(view.state);
             if (pluginState?.ranges?.length || pluginState?.lastSelectedRange) {
               view.dispatch(
@@ -135,7 +219,7 @@ const createMultipleSelectionPlugin = () =>
           if (event.target !== view.dom) {
             return false;
           }
-          removeActiveUser();
+          removeActiveUser(view);
 
           activeCursor = document.createElement("div");
           activeCursor.className = "multipleSelectionCursor";
@@ -145,7 +229,7 @@ const createMultipleSelectionPlugin = () =>
           activeCursor.style.border = "1px solid rgba(var(--color-primary-100), 0.2)";
           activeCursor.style.background = "rgba(var(--color-primary-100), 0.2)";
           activeCursor.style.opacity = "0.5";
-          activeCursor.style.position = "fixed";
+          activeCursor.style.position = "absolute";
           activeCursor.style.top = `${event.pageY}px`;
           activeCursor.style.left = `${event.pageX}px`;
           activeCursor.style.pointerEvents = "none";
@@ -156,8 +240,10 @@ const createMultipleSelectionPlugin = () =>
 
           document.body.appendChild(activeCursor);
 
+          isDragging = true;
+          lastClientY = event.clientY;
+
           selectNodesHandler = (e: MouseEvent) => {
-            isDragging = true;
             updateCursorPosition(e, view);
             if (activeCursor) {
               const rect = activeCursor.getBoundingClientRect();
@@ -173,10 +259,7 @@ const createMultipleSelectionPlugin = () =>
           };
 
           document.addEventListener("mousemove", selectNodesHandler);
-          document.addEventListener("mouseup", () => {
-            removeActiveUser();
-            isDragging = false;
-          });
+          document.addEventListener("mouseup", () => removeActiveUser(view));
 
           event.preventDefault();
           return true;
@@ -190,7 +273,7 @@ const createMultipleSelectionPlugin = () =>
             state.doc,
             pluginState.ranges.map(([from, to]) =>
               Decoration.node(from, to, {
-                class: "custom-selection",
+                class: "ProseMirror-selectednode",
               })
             )
           );
@@ -200,7 +283,7 @@ const createMultipleSelectionPlugin = () =>
           const { from, to } = pluginState.lastSelectedRange;
           return DecorationSet.create(state.doc, [
             Decoration.node(from, to, {
-              class: "custom-selection final",
+              class: "ProseMirror-selectednode",
             }),
           ]);
         }
