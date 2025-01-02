@@ -31,10 +31,19 @@ from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 
 
 @sync_to_async
-def save_project_cover(project_id, asset_id):
-    project = Project.objects.get(id=project_id)
+def get_project(project_id):
+    return Project.objects.get(id=project_id)
+
+
+@sync_to_async
+def save_project_cover(project, asset_id):
     project.cover_image_asset_id = asset_id
     project.save()
+
+
+@sync_to_async
+def get_assets_by_ids(slug, asset_ids):
+    return list(FileAsset.objects.filter(workspace__slug=slug, id__in=asset_ids))
 
 
 @sync_to_async
@@ -51,17 +60,8 @@ def validate_feature_flag(slug: str, user_id: str, feature_key: str) -> bool:
 
 
 def get_entity_id_field(entity_type, entity_identifier):
-    if entity_type == ProjectAssetEnumType.WORKSPACE_LOGO.value:
-        return {"workspace_id": entity_identifier}
-
     if entity_type == ProjectAssetEnumType.PROJECT_COVER.value:
         return {"project_id": entity_identifier}
-
-    if entity_type in [
-        ProjectAssetEnumType.USER_AVATAR.value,
-        ProjectAssetEnumType.USER_COVER.value,
-    ]:
-        return {"user_id": entity_identifier}
 
     if entity_type in [
         ProjectAssetEnumType.ISSUE_ATTACHMENT.value,
@@ -82,7 +82,7 @@ def get_entity_id_field(entity_type, entity_identifier):
 
 
 @sync_to_async
-def create_asset_entity(
+def create_asset(
     attributes,
     asset,
     size,
@@ -124,15 +124,12 @@ class ProjectAssetMutation:
         type: str,
         size: int,
         entity_type: ProjectAssetEnumType,
-        entity_identifier: str,
+        entity_identifier: Optional[str] = None,
     ) -> AssetPresignedUrlResponseType:
         user = info.context.user
 
         # Checking if the entity type is valid
         if not entity_type or entity_type not in [
-            ProjectAssetEnumType.USER_AVATAR,
-            ProjectAssetEnumType.USER_COVER,
-            ProjectAssetEnumType.WORKSPACE_LOGO,
             ProjectAssetEnumType.PROJECT_COVER,
             ProjectAssetEnumType.ISSUE_ATTACHMENT,
             ProjectAssetEnumType.ISSUE_DESCRIPTION,
@@ -160,10 +157,7 @@ class ProjectAssetMutation:
         # Checking if the file size is within the limit
         size_limit = min(size, settings.FILE_SIZE_LIMIT)
 
-        if entity_type in [
-            ProjectAssetEnumType.WORKSPACE_LOGO.value,
-            ProjectAssetEnumType.PROJECT_COVER.value,
-        ]:
+        if entity_type in [ProjectAssetEnumType.PROJECT_COVER.value]:
             size_limit = min(size, settings.FILE_SIZE_LIMIT)
         else:
             if validate_feature_flag(
@@ -180,7 +174,7 @@ class ProjectAssetMutation:
         asset_key = f"{workspace.id}/{uuid.uuid4().hex}-{name}"
 
         # Create a File Asset
-        asset = await create_asset_entity(
+        asset = await create_asset(
             attributes={"name": name, "type": type, "size": size_limit},
             asset=asset_key,
             size=size_limit,
@@ -245,7 +239,7 @@ class ProjectAssetMutation:
             workspace__slug=slug, project_id=project, id=asset_id
         )
 
-        asset.is_uploaded = True
+        asset.is_deleted = True
         asset.deleted_at = timezone.now()
 
         # save the asset
@@ -263,36 +257,50 @@ class ProjectAssetMutation:
         slug: str,
         project: strawberry.ID,
         entity_id: strawberry.ID,
-        asset_id: strawberry.ID,
+        asset_ids: list[strawberry.ID],
     ) -> bool:
-        asset = await sync_to_async(FileAsset.objects.get)(
-            workspace__slug=slug, id=asset_id
-        )
-
-        if not asset:
+        if not asset_ids:
             message = "Asset not found."
             error_extensions = {"code": "ASSET_NOT_FOUND", "statusCode": 404}
             raise GraphQLError(message, extensions=error_extensions)
 
+        assets = await get_assets_by_ids(slug, asset_ids)
+
+        if not assets:
+            message = "No assets found matching the given IDs."
+            error_extensions = {"code": "NO_ASSETS_FOUND", "statusCode": 404}
+            raise GraphQLError(message, extensions=error_extensions)
+
+        # Get the first asset
+        asset = assets[0]
+
         if asset.entity_type == ProjectAssetEnumType.PROJECT_COVER.value:
-            asset.project_id = project
-            await sync_to_async(asset.save)(update_fields=["project_id"])
-            await save_project_cover(project, asset.id)
+            for asset in assets:
+                # updating the asset with the project id
+                asset.project_id = project
+                await sync_to_async(asset.save)(update_fields=["project_id"])
+                # updating the project cover image
+                project_details = await get_project(project)
+                await save_project_cover(project_details, asset.id)
 
         if asset.entity_type == ProjectAssetEnumType.ISSUE_DESCRIPTION.value:
-            asset.issue_id = entity_id
-            await sync_to_async(asset.save)(update_fields=["issue_id"])
+            for asset in assets:
+                asset.issue_id = entity_id
+                await sync_to_async(asset.save)(update_fields=["issue_id"])
 
         if asset.entity_type == ProjectAssetEnumType.COMMENT_DESCRIPTION.value:
-            asset.comment_id = entity_id
-            await sync_to_async(asset.save)(update_fields=["comment_id"])
+            for asset in assets:
+                asset.comment_id = entity_id
+                await sync_to_async(asset.save)(update_fields=["comment_id"])
 
         if asset.entity_type == ProjectAssetEnumType.PAGE_DESCRIPTION.value:
-            asset.page_id = entity_id
-            await sync_to_async(asset.save)(update_fields=["page_id"])
+            for asset in assets:
+                asset.page_id = entity_id
+                await sync_to_async(asset.save)(update_fields=["page_id"])
 
         if asset.entity_type == ProjectAssetEnumType.DRAFT_ISSUE_DESCRIPTION.value:
-            asset.draft_issue_id = entity_id
-            await sync_to_async(asset.save)(update_fields=["draft_issue_id"])
+            for asset in assets:
+                asset.draft_issue_id = entity_id
+                await sync_to_async(asset.save)(update_fields=["draft_issue_id"])
 
         return True
