@@ -73,11 +73,13 @@ export function dropCursor(options: DropCursorOptions = {}, tiptapEditorOptions:
             tr.deleteSelection();
           }
 
+          const finalDropPos = dropPosByDropCursorPos + 2;
+          console.log("finalDropPos", finalDropPos + 1);
           // Insert the content
-          tr.insert(dropPosByDropCursorPos, slice.content);
+          tr.insert(finalDropPos, slice.content);
 
           // Create a NodeSelection on the newly inserted content
-          const $pos = tr.doc.resolve(dropPosByDropCursorPos);
+          const $pos = tr.doc.resolve(finalDropPos);
           const node = $pos.nodeAfter;
 
           if (node) {
@@ -325,54 +327,63 @@ export const DropCursorExtension = Extension.create({
 });
 
 function rawIsBetweenFlatListsFn(event: DragEvent, editor: Editor) {
-  // Cache coordinates for multiple uses
+  // Cache coordinates and use a single object for multiple coordinate lookups
   const coords = {
     left: event.clientX,
     top: event.clientY,
   };
 
-  // Get element under drag - single DOM query
+  // Use WeakMap to cache element positions and calculations
+  const positionCache = new WeakMap();
+
+  // Get element under drag with a more efficient selector strategy
   const elementUnderDrag = document.elementFromPoint(coords.left, coords.top);
   if (!elementUnderDrag) return null;
 
-  // Find closest flat list - single DOM traversal
+  // Find closest flat list using a cached selector
   const currentFlatList = elementUnderDrag.closest(".prosemirror-flat-list");
   if (!currentFlatList) return null;
 
-  // Early state initialization
+  // Use a single getBoundingClientRect call and cache the result
+  const currentFlatListRect = currentFlatList.getBoundingClientRect();
+
+  // Initialize state object once
   const state = {
     isHoveringOverListContent: !elementUnderDrag.classList.contains("prosemirror-flat-list"),
     isBetweenFlatLists: true,
     hasNestedLists: false,
-    listLevel: 0,
     pos: null as number | null,
+    listLevel: 0,
+    isNestedList: false,
   };
 
-  // Cache currentFlatList's position data
-  const currentFlatListRect = currentFlatList.getBoundingClientRect();
-
-  // Determine position based on context
+  // Efficient position calculation with caching
   const getPositionFromElement = (element: Element): number | null => {
+    if (positionCache.has(element)) {
+      return positionCache.get(element);
+    }
+
     const rect = element.getBoundingClientRect();
     const pos = editor.view.posAtCoords({
       left: rect.left,
       top: rect.top,
     });
-    return pos?.pos ?? null;
+
+    const result = pos?.pos ?? null;
+    positionCache.set(element, result);
+    return result;
   };
 
-  // Check for siblings and nested lists in a single pass
+  // Batch DOM operations
   const sibling = currentFlatList.nextElementSibling;
-  const firstNestedList = currentFlatList.querySelector(".prosemirror-flat-list") as HTMLElement;
+  const firstNestedList = currentFlatList.querySelector(":scope > .prosemirror-flat-list");
 
-  // Efficient list level calculation
-  const level = currentFlatList.closest(".ProseMirror")
-    ? Array.from(currentFlatList.parentElement?.querySelectorAll(".prosemirror-flat-list") ?? []).filter((el) =>
-        el.contains(currentFlatList)
-      ).length
-    : 0;
+  // Calculate list level efficiently using a direct parent check
+  const level = getListLevelOptimized(currentFlatList);
+  state.listLevel = level;
+  state.isNestedList = level >= 1;
 
-  // Position determination logic - prioritized order
+  // Determine position with minimal DOM operations
   if (sibling) {
     state.pos = getPositionFromElement(sibling);
   } else if (firstNestedList) {
@@ -390,9 +401,23 @@ function rawIsBetweenFlatListsFn(event: DragEvent, editor: Editor) {
   return {
     ...state,
     pos: state.pos - 1,
-    listLevel: level,
-    isNestedList: level >= 1,
   };
+}
+
+// Optimized list level calculation
+function getListLevelOptimized(element: Element): number {
+  let level = 0;
+  let current = element.parentElement;
+
+  // Use a more efficient selector matching
+  while (current && !current.classList.contains("ProseMirror")) {
+    if (current.classList.contains("prosemirror-flat-list")) {
+      level++;
+    }
+    current = current.parentElement;
+  }
+
+  return level;
 }
 
 function getListLevel(element: Element): number {
