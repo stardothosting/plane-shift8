@@ -4,18 +4,19 @@ import { Dispatch, FC, SetStateAction, useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import { Button, ModalCore } from "@plane/ui";
 // plane web components
-import { ProjectForm, StateForm } from "@/plane-web/components/integrations/github";
+import { ProjectForm, StateForm } from "@/plane-web/components/integrations/gitlab";
 // plane web hooks
-import { useGithubIntegration } from "@/plane-web/hooks/store";
+import { useGitlabIntegration } from "@/plane-web/hooks/store";
 // plane web types
-import { E_STATE_MAP_KEYS, TGithubEntityConnection, TProjectMap, TStateMap } from "@/plane-web/types/integrations";
+import { E_STATE_MAP_KEYS, TProjectMap, TStateMap } from "@/plane-web/types/integrations";
 // local imports
 import { projectMapInit, stateMapInit } from "../root";
+import { TGitlabEntityConnection } from "@/plane-web/types/integrations/gitlab";
 
 type TFormEdit = {
   modal: boolean;
   handleModal: Dispatch<SetStateAction<boolean>>;
-  data: TGithubEntityConnection;
+  data: TGitlabEntityConnection;
 };
 
 export const FormEdit: FC<TFormEdit> = observer((props) => {
@@ -26,8 +27,8 @@ export const FormEdit: FC<TFormEdit> = observer((props) => {
   const {
     workspace,
     fetchStates,
-    entity: { updateEntity },
-  } = useGithubIntegration();
+    entityConnection: { updateEntityConnection },
+  } = useGitlabIntegration();
 
   // states
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -58,14 +59,13 @@ export const FormEdit: FC<TFormEdit> = observer((props) => {
     try {
       setIsSubmitting(true);
 
-      const payload: Partial<TGithubEntityConnection> = {
-        entityId: projectMap.entityId,
+      const payload: Partial<TGitlabEntityConnection> = {
         projectId: projectMap.projectId,
         config: {
           states: { mergeRequestEventMapping: stateMap },
         },
       };
-      await updateEntity(data.id, payload);
+      await updateEntityConnection(data.id, payload);
 
       handleModal(false);
     } catch (error) {
@@ -112,7 +112,7 @@ export const FormEdit: FC<TFormEdit> = observer((props) => {
             <div className="relative space-y-1 p-3">
               <div className="text-base">Pull request automation</div>
               <div className="text-xs text-custom-text-200">
-                With Github integration Enabled, you can automate issue workflows
+                With Gitlab integration Enabled, you can automate issue workflows
               </div>
             </div>
             <div className="p-3">
