@@ -14,7 +14,6 @@ import { PRODUCT_TOUR_COMPLETED } from "@/constants/event-tracker";
 import { cn } from "@/helpers/common.helper";
 // hooks
 import { useCommandPalette, useUserProfile, useEventTracker, useDashboard, useProject, useUser } from "@/hooks/store";
-import { useHome } from "@/hooks/store/use-home";
 import useSize from "@/hooks/use-window-size";
 import { IssuePeekOverview } from "../issues";
 
@@ -30,7 +29,6 @@ export const WorkspaceDashboardView = observer(() => {
   const { data: currentUserProfile, updateTourCompleted } = useUserProfile();
   const { captureEvent } = useEventTracker();
   const { homeDashboardId, fetchHomeDashboardWidgets } = useDashboard();
-  const { toggleWidgetSettings } = useHome();
   const { joinedProjectIds, loader } = useProject();
 
   const [windowWidth] = useSize();
@@ -73,9 +71,7 @@ export const WorkspaceDashboardView = observer(() => {
                   "vertical-scrollbar scrollbar-lg": windowWidth >= 768,
                 })}
               >
-                {currentUser && (
-                  <UserGreetingsView user={currentUser} handleWidgetModal={() => toggleWidgetSettings(true)} />
-                )}
+                {currentUser && <UserGreetingsView user={currentUser} />}
 
                 <DashboardWidgets />
               </ContentWrapper>
