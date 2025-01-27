@@ -19,14 +19,10 @@ def fetch_workspace_license(workspace_id, workspace_slug, free_seats=12):
     # Get all active workspace members
     workspace_members = (
         WorkspaceMember.objects.filter(
-            workspace_id=workspace_id,
-            is_active=True,
-            member__is_bot=False,
+            workspace_id=workspace_id, is_active=True, member__is_bot=False
         )
         .annotate(
-            user_email=F("member__email"),
-            user_id=F("member__id"),
-            user_role=F("role"),
+            user_email=F("member__email"), user_id=F("member__id"), user_role=F("role")
         )
         .values("user_email", "user_id", "user_role")
     )
@@ -54,7 +50,10 @@ def fetch_workspace_license(workspace_id, workspace_slug, free_seats=12):
 
 
 def is_trial_allowed(workspace_license):
-    """The free trial is only allowed if the workspace has not activated the free trial and the workspace does not have a subscription"""
+    """
+    The free trial is only allowed if the workspace has not activated
+    the free trial and the workspace does not have a subscription
+    """
     if (
         settings.IS_MULTI_TENANT
         and not workspace_license.subscription
@@ -66,10 +65,7 @@ def is_trial_allowed(workspace_license):
 
 def has_upgraded(workspace_license):
     """Check if the workspace has upgraded from the trial"""
-    if (
-        workspace_license.subscription
-        and workspace_license.has_added_payment_method
-    ):
+    if workspace_license.subscription and workspace_license.has_added_payment_method:
         return True
     return False
 
@@ -104,9 +100,8 @@ def is_billing_active(workspace_license):
     if workspace_license.plan == WorkspaceLicense.PlanChoice.FREE:
         return False
 
-    if (
-        workspace_license.plan == WorkspaceLicense.PlanChoice.PRO
-        and is_on_trial(workspace_license)
+    if workspace_license.plan == WorkspaceLicense.PlanChoice.PRO and is_on_trial(
+        workspace_license
     ):
         return False
 
@@ -139,7 +134,10 @@ def show_trial_banner(workspace_license):
 
 def is_trial_ended(workspace_license):
     """Check if the trial has ended"""
-    if workspace_license.plan == WorkspaceLicense.PlanChoice.FREE:
+    if (
+        settings.IS_MULTI_TENANT
+        and workspace_license.plan == WorkspaceLicense.PlanChoice.FREE
+    ):
         # If the workspace is on free product then check if the trial is allowed
         return not is_trial_allowed(workspace_license)
     return False
@@ -152,13 +150,12 @@ def count_billable_members(workspace_license):
         workspace=workspace_license.workspace,
         is_active=True,
         member__is_bot=False,
-        member__gt=10,
+        role__gt=10,
     ).count()
 
     # Check the active paid users in the workspace
     invited_member_count = WorkspaceMemberInvite.objects.filter(
-        workspace=workspace_license.workspace,
-        role__gt=10,
+        workspace=workspace_license.workspace, role__gt=10
     ).count()
 
     return workspace_member_count + invited_member_count
@@ -169,29 +166,33 @@ def count_total_seats(workspace_license):
 
     # Check the active users in the workspace
     workspace_seats_count = WorkspaceMember.objects.filter(
-        workspace=workspace_license.workspace,
-        is_active=True,
-        member__is_bot=False,
+        workspace=workspace_license.workspace, is_active=True, member__is_bot=False
     ).count()
 
     # Check the active paid users in the workspace
     invited_seats_count = WorkspaceMemberInvite.objects.filter(
-        workspace=workspace_license.workspace,
+        workspace=workspace_license.workspace
     ).count()
 
     return workspace_seats_count + invited_seats_count
 
 
-def show_cloud_seats_banner(workspace_license):
-    """Determine if the cloud seats banner should be shown"""
-    if settings.IS_MULTI_TENANT and (
-        workspace_license.plan == WorkspaceLicense.PlanChoice.FREE
-        or is_on_trial(workspace_license)
-    ):
+def show_seats_banner(workspace_license):
+    """Determine if the seats banner should be shown"""
+    if workspace_license.plan == WorkspaceLicense.PlanChoice.FREE:
         return count_total_seats(workspace_license) >= int(
-            os.environ.get("CLOUD_SEATS_BANNER_LIMIT", 8)
+            os.environ.get("SEATS_BANNER_LIMIT", 8)
         )
     return False
+
+
+def is_free_member_count_exceeded(workspace_license):
+    """Determine if the free member count has been exceeded"""
+    current_seats = count_total_seats(workspace_license)
+    if workspace_license.plan == WorkspaceLicense.PlanChoice.FREE:
+        return current_seats > workspace_license.free_seats
+    else:
+        return False
 
 
 def resync_workspace_license(workspace_slug, force=False):
@@ -199,9 +200,7 @@ def resync_workspace_license(workspace_slug, force=False):
     workspace = Workspace.objects.get(slug=workspace_slug)
 
     # Check if the license is present for the workspace
-    workspace_license = WorkspaceLicense.objects.filter(
-        workspace=workspace
-    ).first()
+    workspace_license = WorkspaceLicense.objects.filter(workspace=workspace).first()
 
     # If the license is present, then check if the last sync is more than 1 hour
     if workspace_license:
@@ -214,20 +213,14 @@ def resync_workspace_license(workspace_slug, force=False):
                 workspace_id=str(workspace.id),
                 workspace_slug=workspace_slug,
                 free_seats=WorkspaceMember.objects.filter(
-                    is_active=True,
-                    workspace__slug=workspace_slug,
-                    member__is_bot=False,
+                    is_active=True, workspace__slug=workspace_slug, member__is_bot=False
                 ).count(),
             )
             # Update the last synced time
             workspace_license.last_synced_at = timezone.now()
-            workspace_license.is_cancelled = response.get(
-                "is_cancelled", False
-            )
+            workspace_license.is_cancelled = response.get("is_cancelled", False)
             workspace_license.free_seats = response.get("free_seats", 12)
-            workspace_license.purchased_seats = response.get(
-                "purchased_seats", 0
-            )
+            workspace_license.purchased_seats = response.get("purchased_seats", 0)
             workspace_license.current_period_end_date = response.get(
                 "current_period_end_date"
             )
@@ -249,9 +242,7 @@ def resync_workspace_license(workspace_slug, force=False):
             )
             workspace_license.save()
 
-            workspace_license = WorkspaceLicense.objects.get(
-                workspace=workspace
-            )
+            workspace_license = WorkspaceLicense.objects.get(workspace=workspace)
             return {
                 "is_cancelled": workspace_license.is_cancelled,
                 "purchased_seats": workspace_license.purchased_seats,
@@ -266,20 +257,19 @@ def resync_workspace_license(workspace_slug, force=False):
                 "is_self_managed": (not settings.IS_MULTI_TENANT),
                 "is_on_trial": is_on_trial(workspace_license),
                 "is_trial_allowed": is_trial_allowed(workspace_license),
-                "remaining_trial_days": trial_remaining_days(
-                    workspace_license
-                ),
+                "remaining_trial_days": trial_remaining_days(workspace_license),
                 "has_upgraded": has_upgraded(workspace_license),
                 "show_payment_button": show_payment_button(workspace_license),
                 "show_trial_banner": show_trial_banner(workspace_license),
                 "free_seats": workspace_license.free_seats,
-                "total_seats": count_total_seats(workspace_license),
-                "show_cloud_seats_banner": show_cloud_seats_banner(
-                    workspace_license
-                ),
+                "occupied_seats": count_total_seats(workspace_license),
+                "show_seats_banner": show_seats_banner(workspace_license),
                 "current_period_start_date": workspace_license.current_period_start_date,
                 "is_trial_ended": is_trial_ended(workspace_license),
                 "billable_members": count_billable_members(workspace_license),
+                "is_free_member_count_exceeded": is_free_member_count_exceeded(
+                    workspace_license
+                ),
             }
         else:
             return {
@@ -296,20 +286,19 @@ def resync_workspace_license(workspace_slug, force=False):
                 "is_self_managed": (not settings.IS_MULTI_TENANT),
                 "is_on_trial": is_on_trial(workspace_license),
                 "is_trial_allowed": is_trial_allowed(workspace_license),
-                "remaining_trial_days": trial_remaining_days(
-                    workspace_license
-                ),
+                "remaining_trial_days": trial_remaining_days(workspace_license),
                 "has_upgraded": has_upgraded(workspace_license),
                 "show_payment_button": show_payment_button(workspace_license),
                 "show_trial_banner": show_trial_banner(workspace_license),
                 "free_seats": workspace_license.free_seats,
-                "total_seats": count_total_seats(workspace_license),
-                "show_cloud_seats_banner": show_cloud_seats_banner(
-                    workspace_license
-                ),
+                "occupied_seats": count_total_seats(workspace_license),
+                "show_seats_banner": show_seats_banner(workspace_license),
                 "current_period_start_date": workspace_license.current_period_start_date,
                 "is_trial_ended": is_trial_ended(workspace_license),
                 "billable_members": count_billable_members(workspace_license),
+                "is_free_member_count_exceeded": is_free_member_count_exceeded(
+                    workspace_license
+                ),
             }
     # If the license is not present, then fetch the license from the payment server and create it
     else:
@@ -318,9 +307,7 @@ def resync_workspace_license(workspace_slug, force=False):
             workspace_id=str(workspace.id),
             workspace_slug=workspace_slug,
             free_seats=WorkspaceMember.objects.filter(
-                is_active=True,
-                workspace__slug=workspace_slug,
-                member__is_bot=False,
+                is_active=True, workspace__slug=workspace_slug, member__is_bot=False
             ).count(),
         )
 
@@ -335,16 +322,10 @@ def resync_workspace_license(workspace_slug, force=False):
             plan=response.get("plan"),
             last_synced_at=timezone.now(),
             trial_end_date=response.get("trial_end_date"),
-            has_activated_free_trial=response.get(
-                "has_activated_free_trial", False
-            ),
-            has_added_payment_method=response.get(
-                "has_added_payment_method", False
-            ),
+            has_activated_free_trial=response.get("has_activated_free_trial", False),
+            has_added_payment_method=response.get("has_added_payment_method", False),
             subscription=response.get("subscription"),
-            current_period_start_date=response.get(
-                "current_period_start_date"
-            ),
+            current_period_start_date=response.get("current_period_start_date"),
         )
 
         workspace_license = WorkspaceLicense.objects.get(workspace=workspace)
@@ -368,11 +349,12 @@ def resync_workspace_license(workspace_slug, force=False):
             "show_payment_button": show_payment_button(workspace_license),
             "show_trial_banner": show_trial_banner(workspace_license),
             "free_seats": workspace_license.free_seats,
-            "total_seats": count_total_seats(workspace_license),
-            "show_cloud_seats_banner": show_cloud_seats_banner(
-                workspace_license
-            ),
+            "occupied_seats": count_total_seats(workspace_license),
+            "show_seats_banner": show_seats_banner(workspace_license),
             "current_period_start_date": workspace_license.current_period_start_date,
             "is_trial_ended": is_trial_ended(workspace_license),
             "billable_members": count_billable_members(workspace_license),
+            "is_free_member_count_exceeded": is_free_member_count_exceeded(
+                workspace_license
+            ),
         }
