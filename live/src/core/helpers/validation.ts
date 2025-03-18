@@ -2,12 +2,15 @@ import Errors from "./error-factory";
 
 /**
  * A simple validation utility that integrates with our error system.
- * 
+ *
  * This provides a fluent interface for validating data and throwing
  * appropriate errors if validation fails.
  */
 export class Validator<T> {
-  constructor(private readonly data: T, private readonly name: string = 'data') {}
+  constructor(
+    private readonly data: T,
+    private readonly name: string = "data"
+  ) {}
 
   /**
    * Ensures a value is defined (not undefined or null)
@@ -23,7 +26,7 @@ export class Validator<T> {
    * Ensures a value is a string
    */
   string(message?: string): Validator<T> {
-    if (typeof this.data !== 'string') {
+    if (typeof this.data !== "string") {
       throw Errors.badRequest(message || `${this.name} must be a string`);
     }
     return this;
@@ -33,7 +36,7 @@ export class Validator<T> {
    * Ensures a string is not empty
    */
   notEmpty(message?: string): Validator<T> {
-    if (typeof this.data === 'string' && this.data.trim() === '') {
+    if (typeof this.data === "string" && this.data.trim() === "") {
       throw Errors.badRequest(message || `${this.name} cannot be empty`);
     }
     return this;
@@ -43,7 +46,7 @@ export class Validator<T> {
    * Ensures a value is a number
    */
   number(message?: string): Validator<T> {
-    if (typeof this.data !== 'number' || isNaN(this.data)) {
+    if (typeof this.data !== "number" || isNaN(this.data)) {
       throw Errors.badRequest(message || `${this.name} must be a valid number`);
     }
     return this;
@@ -63,7 +66,7 @@ export class Validator<T> {
    * Ensures a value matches a regular expression
    */
   match(regex: RegExp, message?: string): Validator<T> {
-    if (typeof this.data !== 'string' || !regex.test(this.data)) {
+    if (typeof this.data !== "string" || !regex.test(this.data)) {
       throw Errors.badRequest(message || `${this.name} has an invalid format`);
     }
     return this;
@@ -74,7 +77,7 @@ export class Validator<T> {
    */
   oneOf(allowedValues: any[], message?: string): Validator<T> {
     if (!allowedValues.includes(this.data)) {
-      throw Errors.badRequest(message || `${this.name} must be one of: ${allowedValues.join(', ')}`);
+      throw Errors.badRequest(message || `${this.name} must be one of: ${allowedValues.join(", ")}`);
     }
     return this;
   }
