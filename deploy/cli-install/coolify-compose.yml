@@ -4,7 +4,7 @@
 # logo: svgs/plane.svg
 
 x-plane-commercial: &plane-commercial
-  APP_VERSION: ${APP_RELEASE_VERSION:-v1.x.x}
+  APP_VERSION: ${APP_RELEASE_VERSION:-v1.8.3}
   APP_DOMAIN: ${SERVICE_URL_PLANE}
   MACHINE_SIGNATURE: ${SERVICE_PASSWORD_64_MACHINESIGNATURE}
   DEPLOY_PLATFORM: coolify
@@ -117,13 +117,17 @@ x-app-env: &app-env
   PAYMENT_SERVER_BASE_URL: ${PAYMENT_SERVER_BASE_URL:-http://monitor:8080}
   # Enternal Services Config
   SILO_HMAC_SECRET_KEY: ${SERVICE_PASSWORD_64_SILOHMACSECRETKEY}
+  # API key rate limit
+  API_KEY_RATE_LIMIT: ${API_KEY_RATE_LIMIT:-60/minute}
+  # Force HTTPS for handling SSL Termination
+  MINIO_ENDPOINT_SSL: ${MINIO_ENDPOINT_SSL:-0}
 
 x-live-env: &live-env
   API_BASE_URL: http://api:8000
 
 services:
   admin:
-    image: makeplane/admin-enterprise:${APP_RELEASE_VERSION:-v1.x.x}
+    image: registry.plane.tools/plane/admin-enterprise:${APP_RELEASE_VERSION:-v1.x.x}
     command: node admin/server.js admin
     deploy:
       replicas: ${ADMIN_REPLICAS:-1}
@@ -134,7 +138,7 @@ services:
       - web
 
   web:
-    image: makeplane/web-enterprise:${APP_RELEASE_VERSION:-v1.x.x}
+    image: registry.plane.tools/plane/web-enterprise:${APP_RELEASE_VERSION:-v1.x.x}
     command: node web/server.js web
     deploy:
       replicas: ${WEB_REPLICAS:-1}
