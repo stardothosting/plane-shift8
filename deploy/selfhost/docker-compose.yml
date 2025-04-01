@@ -55,10 +55,11 @@ services:
   web:
     image: ${DOCKERHUB_USER:-makeplane}/plane-frontend:${APP_RELEASE:-stable}
     command: node web/server.js web
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${WEB_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     depends_on:
       - api
       - worker
@@ -66,10 +67,11 @@ services:
   space:
     image: ${DOCKERHUB_USER:-makeplane}/plane-space:${APP_RELEASE:-stable}
     command: node space/server.js space
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${SPACE_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     depends_on:
       - api
       - worker
@@ -78,10 +80,11 @@ services:
   admin:
     image: ${DOCKERHUB_USER:-makeplane}/plane-admin:${APP_RELEASE:-stable}
     command: node admin/server.js admin
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${ADMIN_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     depends_on:
       - api
       - web
@@ -91,10 +94,11 @@ services:
     command: node live/dist/server.js live
     environment:
       <<: [*live-env]
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${LIVE_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     depends_on:
       - api
       - web
@@ -102,10 +106,11 @@ services:
   api:
     image: ${DOCKERHUB_USER:-makeplane}/plane-backend:${APP_RELEASE:-stable}
     command: ./bin/docker-entrypoint-api.sh
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${API_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     volumes:
       - logs_api:/code/plane/logs
     environment:
@@ -118,10 +123,11 @@ services:
   worker:
     image: ${DOCKERHUB_USER:-makeplane}/plane-backend:${APP_RELEASE:-stable}
     command: ./bin/docker-entrypoint-worker.sh
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${WORKER_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     volumes:
       - logs_worker:/code/plane/logs
     environment:
@@ -135,10 +141,11 @@ services:
   beat-worker:
     image: ${DOCKERHUB_USER:-makeplane}/plane-backend:${APP_RELEASE:-stable}
     command: ./bin/docker-entrypoint-beat.sh
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: ${BEAT_WORKER_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
     volumes:
       - logs_beat-worker:/code/plane/logs
     environment:
@@ -152,10 +159,11 @@ services:
   migrator:
     image: ${DOCKERHUB_USER:-makeplane}/plane-backend:${APP_RELEASE:-stable}
     command: ./bin/docker-entrypoint-migrator.sh
+    platform: ${DOCKER_PLATFORM:-}
+    pull_policy: if_not_present
+    restart: unless-stopped
     deploy:
       replicas: 1
-      restart_policy:
-        condition: on-failure
     volumes:
       - logs_migrator:/code/plane/logs
     environment:
@@ -168,10 +176,8 @@ services:
   plane-db:
     image: postgres:15.7-alpine
     command: postgres -c 'max_connections=1000'
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
+    pull_policy: if_not_present
+    restart: unless-stopped
     environment:
       <<: *db-env
     volumes:
@@ -179,19 +185,15 @@ services:
 
   plane-redis:
     image: valkey/valkey:7.2.5-alpine
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
+    pull_policy: if_not_present
+    restart: unless-stopped
     volumes:
       - redisdata:/data
 
   plane-mq:
     image: rabbitmq:3.13.6-management-alpine
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
+    pull_policy: if_not_present
+    restart: unless-stopped
     environment:
       <<: *mq-env
     volumes:
@@ -201,10 +203,8 @@ services:
   plane-minio:
     image: minio/minio:latest
     command: server /export --console-address ":9090"
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
+    pull_policy: if_not_present
+    restart: unless-stopped 
     environment:
       <<: *minio-env
     volumes:
@@ -213,17 +213,12 @@ services:
   # Comment this if you already have a reverse proxy running
   proxy:
     image: ${DOCKERHUB_USER:-makeplane}/plane-proxy:${APP_RELEASE:-stable}
+    pull_policy: if_not_present
+    restart: unless-stopped
     ports:
-      - target: 80
-        published: ${NGINX_PORT:-80}
-        protocol: tcp
-        mode: host
+      - ${NGINX_PORT:-80}:80
     environment:
       <<: *proxy-env
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
     depends_on:
       - web
       - api
