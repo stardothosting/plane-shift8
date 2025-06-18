@@ -80,6 +80,7 @@ export const ModuleIssueQuickActions: React.FC<IQuickActionProps> = observer((pr
     isArchivingAllowed,
     isDeletingAllowed,
     isInArchivableGroup,
+    issueTypeDetail,
     setTrackElement,
     setIssueToEdit,
     setCreateUpdateIssueModal,
