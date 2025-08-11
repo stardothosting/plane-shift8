@@ -5,7 +5,7 @@ import { observer } from "mobx-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 // ui
-import { Spinner, Tooltip, setToast, TOAST_TYPE, Logo, Row } from "@plane/ui";
+import { Tooltip, setToast, TOAST_TYPE, Logo, Row } from "@plane/ui";
 // helpers
 import { cn } from "@plane/utils";
 // hooks
