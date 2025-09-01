@@ -22,18 +22,18 @@ import { EditorMentionsRoot } from "@/components/editor/embeds/mentions";
 // hooks
 import { useEditorMention } from "@/hooks/editor";
 import { useMember } from "@/hooks/store/use-member";
-import { useUserProfile } from "@/hooks/store/use-user-profile";
+
 import { useWorkspace } from "@/hooks/store/use-workspace";
 import { useUser } from "@/hooks/store/user";
 import { usePageFilters } from "@/hooks/use-page-filters";
 import { type TCustomEventHandlers, useRealtimePageEvents } from "@/hooks/use-realtime-page-events";
 // plane web components
 import { EditorAIMenu } from "@/plane-web/components/pages";
-import { MultipleDeletePagesModal } from "@/plane-web/components/pages/modals/multiple-page-delete-modal";
+// plane web types
+import type { TExtendedEditorExtensionsConfig } from "@/plane-web/hooks/pages/use-extended-editor-extensions";
 // plane web store
-import { EPageStoreType } from "@/plane-web/hooks/store";
+import type { EPageStoreType } from "@/plane-web/hooks/store";
 // plane web hooks
-import { useEditorEmbeds } from "@/plane-web/hooks/use-editor-embed";
 import { useEditorFlagging } from "@/plane-web/hooks/use-editor-flagging";
 // store
 import type { TPageInstance } from "@/store/pages/base-page";
@@ -41,6 +41,7 @@ import type { TPageInstance } from "@/store/pages/base-page";
 import { PageContentLoader } from "../loaders/page-content-loader";
 import { PageEditorHeaderRoot } from "./header";
 import { PageContentBrowser } from "./summary";
+// types
 
 // Add a CSS keyframe animation
 export type TEditorBodyConfig = {
@@ -68,6 +69,8 @@ type Props = {
   workspaceSlug: string;
   storeType: EPageStoreType;
   customRealtimeEventHandlers?: TCustomEventHandlers;
+  // Extended editor extensions configuration
+  extendedEditorProps: TExtendedEditorExtensionsConfig;
 };
 
 export const PageEditorBody: React.FC<Props> = observer((props) => {
@@ -85,21 +88,16 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
     projectId,
     workspaceSlug,
     customRealtimeEventHandlers,
+    extendedEditorProps,
   } = props;
+
   // states
   const [isDescriptionEmpty, setIsDescriptionEmpty] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [deletePageModal, setDeletePageModal] = useState({
-    visible: false,
-    pages: [page],
-  });
   // refs
   const titleEditorRef = useRef<EditorTitleRefApi>(null);
   // store hooks
   const { data: currentUser } = useUser();
-  const {
-    data: { is_smooth_cursor_enabled },
-  } = useUserProfile();
   const { getWorkspaceBySlug } = useWorkspace();
   const { getUserDetails } = useMember();
   // derived values
@@ -111,6 +109,7 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
   } = page;
   const workspaceId = getWorkspaceBySlug(workspaceSlug)?.id ?? "";
   const isTitleEmpty = !page.name || page.name.trim() === "";
+
   // Simple animation effect that triggers on mount
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,25 +119,20 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
     return () => clearTimeout(timer);
   }, []);
 
-  // all editor embeds
-  const { embedProps } = useEditorEmbeds({
-    fetchEmbedSuggestions: handlers.fetchEntity,
-    getRedirectionLink: handlers.getRedirectionLink,
-    workspaceSlug,
-    page,
-    storeType,
-    setDeletePageModal,
-  });
   // use editor mention
   const { fetchMentions } = useEditorMention({
     searchEntity: handlers.fetchEntity,
   });
   // editor flaggings
-  const { document: documentEditorExtensions } = useEditorFlagging(workspaceSlug?.toString(), storeType);
+  const { document: documentEditorExtensions } = useEditorFlagging({
+    workspaceSlug,
+    storeType,
+  });
   // page filters
   const { fontSize, fontStyle, isFullWidth } = usePageFilters();
   // translation
   const { t } = useTranslation();
+
   // derived values
   const displayConfig: TDisplayConfig = useMemo(
     () => ({
@@ -170,7 +164,7 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
         isOpen={isOpen}
         onClose={onClose}
         workspaceId={workspaceId}
-        workspaceSlug={workspaceSlug?.toString() ?? ""}
+        workspaceSlug={workspaceSlug}
       />
     ),
     [editorRef, workspaceId, workspaceSlug]
@@ -284,9 +278,9 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
           <CollaborativeDocumentEditorWithRef
             editable={isContentEditable}
             id={pageId}
-            isSmoothCursorEnabled={is_smooth_cursor_enabled}
             fileHandler={config.fileHandler}
             handleEditorReady={handleEditorReady}
+            embedHandler={extendedEditorProps.embedHandler ?? {}}
             ref={editorForwardRef}
             titleRef={titleEditorRef}
             containerClassName="h-full p-0 pb-64"
@@ -305,7 +299,6 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
               setIsDescriptionEmpty(isCommentEmpty(html));
             }}
             updatePageProperties={updatePageProperties}
-            embedHandler={embedProps}
             pageRestorationInProgress={page.restoration.inProgress}
             realtimeConfig={realtimeConfig}
             serverHandler={serverHandler}
@@ -315,18 +308,10 @@ export const PageEditorBody: React.FC<Props> = observer((props) => {
             aiHandler={{
               menu: getAIMenu,
             }}
+            extendedEditorProps={extendedEditorProps}
           />
         </div>
       </div>
-      <MultipleDeletePagesModal
-        editorRef={editorRef}
-        isOpen={deletePageModal.visible}
-        onClose={() => {
-          setDeletePageModal({ visible: false, pages: [] });
-        }}
-        pages={deletePageModal.pages}
-        storeType={storeType}
-      />
     </Row>
   );
 });

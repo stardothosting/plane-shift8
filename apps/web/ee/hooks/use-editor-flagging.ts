@@ -1,7 +1,7 @@
 // plane imports
 import type { TExtensions } from "@plane/editor";
 // ce imports
-import { TEditorFlaggingHookReturnType } from "@/ce/hooks/use-editor-flagging";
+import type { TEditorFlaggingHookReturnType, TEditorFlaggingHookProps } from "@/ce/hooks/use-editor-flagging";
 // plane web hooks
 import { store } from "@/lib/store-context";
 import { EPageStoreType, useFlag, usePageStore } from "@/plane-web/hooks/store";
@@ -10,13 +10,14 @@ import { EWorkspaceFeatures } from "../types/workspace-feature";
 /**
  * @description extensions disabled in various editors
  */
-export const useEditorFlagging = (workspaceSlug: string, storeType?: EPageStoreType): TEditorFlaggingHookReturnType => {
+export const useEditorFlagging = (props: TEditorFlaggingHookProps): TEditorFlaggingHookReturnType => {
+  const { workspaceSlug, storeType } = props;
   const isWorkItemEmbedEnabled = useFlag(workspaceSlug, "PAGE_ISSUE_EMBEDS");
   const isEditorAIOpsEnabled =
     useFlag(workspaceSlug, "EDITOR_AI_OPS") &&
     store.workspaceFeatures.isWorkspaceFeatureEnabled(EWorkspaceFeatures.IS_PI_ENABLED);
   const isCollaborationCursorEnabled = useFlag(workspaceSlug, "COLLABORATION_CURSOR");
-  const { isNestedPagesEnabled } = usePageStore(storeType || EPageStoreType.WORKSPACE);
+  const { isNestedPagesEnabled, isCommentsEnabled } = usePageStore(storeType || EPageStoreType.WORKSPACE);
   const isEditorAttachmentsEnabled = useFlag(workspaceSlug, "EDITOR_ATTACHMENTS");
   const isEditorMathematicsEnabled = useFlag(workspaceSlug, "EDITOR_MATHEMATICS");
   const isExternalEmbedEnabled = useFlag(workspaceSlug, "EDITOR_EXTERNAL_EMBEDS");
@@ -53,6 +54,9 @@ export const useEditorFlagging = (workspaceSlug: string, storeType?: EPageStoreT
     documentFlagged.push("mathematics");
     richTextFlagged.push("mathematics");
     liteTextFlagged.push("mathematics");
+  }
+  if (storeType && !isCommentsEnabled(workspaceSlug)) {
+    documentFlagged.push("comments");
   }
   if (!isExternalEmbedEnabled) {
     documentFlagged.push("external-embed");
