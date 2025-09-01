@@ -10,7 +10,7 @@ import { WorkspacePageService } from "@/plane-web/services/page";
 // plane web store
 import { RootStore } from "@/plane-web/store/root.store";
 // store
-import { BasePage, TPageInstance } from "@/store/pages/base-page";
+import { TPageInstance, BasePage } from "@/store/pages/base-page";
 
 const workspacePageService = new WorkspacePageService();
 
@@ -55,6 +55,7 @@ export class WorkspacePage extends BasePage implements TWorkspacePage {
         return await workspacePageService.duplicate(workspaceSlug, page.id);
       },
     });
+
     makeObservable(this, {
       // computed
       parentPageIds: computed,
@@ -69,6 +70,7 @@ export class WorkspacePage extends BasePage implements TWorkspacePage {
       canCurrentUserDeletePage: computed,
       canCurrentUserFavoritePage: computed,
       canCurrentUserMovePage: computed,
+      canCurrentUserCommentOnPage: computed,
       isContentEditable: computed,
     });
   }
@@ -205,6 +207,25 @@ export class WorkspacePage extends BasePage implements TWorkspacePage {
     const currentUserWorkspaceRole =
       workspaceSlug && this.rootStore.user.permission.getWorkspaceRoleByWorkspaceSlug(workspaceSlug);
 
+    return currentUserWorkspaceRole === EUserWorkspaceRoles.ADMIN;
+  }
+
+  /**
+   * @description returns true if the current logged in user can comment on the page/reply to the comments
+   */
+  get canCurrentUserCommentOnPage() {
+    // Owner can always comment
+    if (this.isCurrentUserOwner) return true;
+
+    // Shared access users can comment if they have at least view access
+    if (this.hasSharedAccess) {
+      return this.canCommentWithSharedAccess;
+    }
+
+    // Fallback to regular access control
+    const { workspaceSlug } = this.rootStore.router;
+    const currentUserWorkspaceRole =
+      workspaceSlug && this.rootStore.user.permission.getWorkspaceRoleByWorkspaceSlug(workspaceSlug);
     return currentUserWorkspaceRole === EUserWorkspaceRoles.ADMIN;
   }
 

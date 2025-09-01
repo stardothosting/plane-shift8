@@ -27,12 +27,10 @@ export type TEmbedHookProps = {
   page?: TPageInstance;
   getRedirectionLink?: (pageId?: string) => string;
   storeType: EPageStoreType;
-  setDeletePageModal?: (params: { visible: boolean; pages: TPageInstance[] }) => void;
 };
 
 export const useEditorEmbeds = (props: TEmbedHookProps) => {
-  const { fetchEmbedSuggestions, projectId, workspaceSlug, page, getRedirectionLink, storeType, setDeletePageModal } =
-    props;
+  const { fetchEmbedSuggestions, projectId, workspaceSlug, page, getRedirectionLink, storeType } = props;
   const { projectId: projectIdFromParams } = useParams();
 
   // store hooks
@@ -151,13 +149,13 @@ export const useEditorEmbeds = (props: TEmbedHookProps) => {
         try {
           const pages = [] as TPageInstance[];
           for (const pageId of pageIds) {
-            const page = getPageById(pageId);
-            if (page) {
-              pages.push(page);
+            const pageInstance = getPageById(pageId);
+            if (pageInstance) {
+              pages.push(pageInstance);
             }
           }
-          if (setDeletePageModal && pages.length > 0) {
-            setDeletePageModal({ visible: true, pages: pages });
+          if (page && pages.length > 0) {
+            page.openDeletePageModal(pages);
           }
         } catch {}
       },
@@ -226,7 +224,7 @@ export const useEditorEmbeds = (props: TEmbedHookProps) => {
       },
       workspaceSlug: workspaceSlug?.toString() ?? "",
     };
-  }, [storeType, page, getPageById, createPage, getRedirectionLink, workspaceSlug, setDeletePageModal]);
+  }, [storeType, page, getPageById, createPage, getRedirectionLink, workspaceSlug]);
 
   const embedProps: TEmbedConfig = useMemo(
     () => ({
