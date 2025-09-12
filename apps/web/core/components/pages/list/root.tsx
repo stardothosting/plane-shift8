@@ -69,8 +69,10 @@ export const ProjectPagesListRoot: React.FC<Props> = observer((props) => {
 
   // Use SWR to fetch the data but not for rendering
   const { isLoading, data } = useSWR(
-    workspaceSlug && projectId ? `PROJECT_PAGES_${projectId}_${pageType}_${debouncedSearchQuery || ""}` : null,
-    workspaceSlug && projectId
+    workspaceSlug && projectId && pageType
+      ? `PROJECT_PAGES_${projectId}_${pageType}_${debouncedSearchQuery || ""}`
+      : null,
+    workspaceSlug && projectId && pageType
       ? () => fetchPagesByType(workspaceSlug, projectId, pageType, debouncedSearchQuery)
       : null,
     {
