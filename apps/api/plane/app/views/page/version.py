@@ -6,10 +6,14 @@ from rest_framework.response import Response
 from plane.db.models import PageVersion
 from ..base import BaseAPIView
 from plane.app.serializers import PageVersionSerializer, PageVersionDetailSerializer
-from plane.ee.permissions.page import ProjectPagePermission
+from plane.app.permissions import allow_permission, ROLE
+from plane.app.permissions import ProjectPagePermission
+
 
 class PageVersionEndpoint(BaseAPIView):
+
     permission_classes = [ProjectPagePermission]
+
     def get(self, request, slug, project_id, page_id, pk=None):
         # Check if pk is provided
         if pk:
