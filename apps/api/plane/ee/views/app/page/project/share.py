@@ -148,7 +148,7 @@ class ProjectPageUserViewSet(BaseViewSet):
                 slug=slug,
                 project_id=project_id,
                 user_id=request.user.id,
-                extra=json.dumps({"user_ids": list(user_id)}),
+                extra=json.dumps({"user_ids": [str(user_id)]}),
             )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
