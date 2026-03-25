@@ -5,3 +5,5 @@
  */
 
 export * from "./info-icon";
+export * from "./check-circle-filled-icon";
+export * from "./close-circle-filled-icon";
