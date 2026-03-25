@@ -129,6 +129,26 @@ class WorkSpaceMemberInviteSerializer(BaseSerializer):
         ]
 
 
+class WorkSpaceMemberInvitePublicSerializer(BaseSerializer):
+    """Safe serializer for unauthenticated invitation endpoints.
+    Excludes token and invite_link to prevent token leakage."""
+
+    workspace = WorkspaceLiteSerializer(read_only=True)
+
+    class Meta:
+        model = WorkspaceMemberInvite
+        exclude = ["token"]
+        read_only_fields = [
+            "id",
+            "email",
+            "workspace",
+            "message",
+            "responded_at",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class WorkspaceThemeSerializer(BaseSerializer):
     class Meta:
         model = WorkspaceTheme
