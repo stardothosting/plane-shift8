@@ -22,6 +22,7 @@ from rest_framework.response import Response
 from plane.app.permissions import WorkSpaceAdminPermission
 from plane.app.serializers import (
     WorkSpaceMemberInviteSerializer,
+    WorkSpaceMemberInvitePublicSerializer,
     WorkSpaceMemberSerializer,
 )
 from plane.app.views.base import BaseAPIView
@@ -237,7 +238,7 @@ class WorkspaceJoinEndpoint(BaseAPIView):
 
     def get(self, request, slug, pk):
         workspace_invitation = WorkspaceMemberInvite.objects.get(workspace__slug=slug, pk=pk)
-        serializer = WorkSpaceMemberInviteSerializer(workspace_invitation)
+        serializer = WorkSpaceMemberInvitePublicSerializer(workspace_invitation)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
