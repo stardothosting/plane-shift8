@@ -7,7 +7,7 @@ from django.db import models
 from django.conf import settings
 
 # Module imports
-from .workspace import WorkspaceBaseModel
+from .project import ProjectOptionalBaseModel
 
 
 class EntityNameEnum(models.TextChoices):
@@ -19,7 +19,7 @@ class EntityNameEnum(models.TextChoices):
     PROJECT = "PROJECT", "Project"
 
 
-class UserRecentVisit(WorkspaceBaseModel):
+class UserRecentVisit(ProjectOptionalBaseModel):
     entity_identifier = models.UUIDField(null=True)
     entity_name = models.CharField(max_length=30)
     user = models.ForeignKey(

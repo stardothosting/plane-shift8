@@ -12,6 +12,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from .workspace import WorkspaceManager
 
 # Module imports
 from plane.db.mixins import AuditModel
@@ -175,6 +176,21 @@ class Project(BaseModel):
             self.timezone = workspace.timezone
 
         return super().save(*args, **kwargs)
+
+
+class ProjectOptionalBaseModel(BaseModel):
+    workspace = models.ForeignKey("db.Workspace", models.CASCADE, related_name="workspace_%(class)s")
+    project = models.ForeignKey("db.Project", models.CASCADE, related_name="project_%(class)s", null=True)
+
+    objects = WorkspaceManager()
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.project:
+            self.workspace = self.project.workspace
+        super(ProjectOptionalBaseModel, self).save(*args, **kwargs)
 
 
 class ProjectBaseModel(BaseModel):

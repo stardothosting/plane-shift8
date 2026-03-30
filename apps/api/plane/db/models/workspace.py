@@ -5,16 +5,19 @@
 # Python imports
 import pytz
 from typing import Optional, Any
+from uuid import UUID
 
 # Django imports
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 # Module imports
 from .base import BaseModel
 from plane.utils.constants import RESTRICTED_WORKSPACE_SLUGS
 from plane.utils.color import get_random_color
+from plane.db.mixins import SoftDeletionManager, SoftDeletionQuerySet
 
 ROLE_CHOICES = ((20, "Admin"), (15, "Member"), (5, "Guest"))
 
@@ -182,17 +185,36 @@ class Workspace(BaseModel):
         ordering = ("-created_at",)
 
 
+class WorkspaceQuerySet(SoftDeletionQuerySet):
+    """QuerySet for project related models that handles accessibility"""
+
+    def accessible_to(self, user_id: UUID, slug: str):
+        from plane.db.models.project import ProjectMember
+
+        member_project_ids = ProjectMember.objects.filter(
+            member_id=user_id, workspace__slug=slug, is_active=True
+        ).values_list("project_id", flat=True)
+
+        base_query = Q(project_id__in=member_project_ids)
+
+        return self.filter(base_query)
+
+
+class WorkspaceManager(SoftDeletionManager):
+    """Manager for project related models that handles accessibility"""
+
+    def get_queryset(self):
+        return WorkspaceQuerySet(self.model, using=self._db).filter(deleted_at__isnull=True)
+
+    def accessible_to(self, user_id: UUID, slug: str):
+        return self.get_queryset().accessible_to(user_id, slug)
+
+
 class WorkspaceBaseModel(BaseModel):
     workspace = models.ForeignKey("db.Workspace", models.CASCADE, related_name="workspace_%(class)s")
-    project = models.ForeignKey("db.Project", models.CASCADE, related_name="project_%(class)s", null=True)
 
     class Meta:
         abstract = True
-
-    def save(self, *args, **kwargs):
-        if self.project:
-            self.workspace = self.project.workspace
-        super(WorkspaceBaseModel, self).save(*args, **kwargs)
 
 
 class WorkspaceMember(BaseModel):
