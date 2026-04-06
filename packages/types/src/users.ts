@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import type { TUserPermissions } from "./enums";
 import type { IIssueActivity, TIssuePriorities, TStateGroups } from ".";
 import type { TLoginMediums } from "./instance";
@@ -59,14 +65,10 @@ export type TUserProfile = {
   role: string | undefined;
   last_workspace_id: string | undefined;
   theme: {
-    text: string | undefined;
     theme: string | undefined;
-    palette: string | undefined;
     primary: string | undefined;
     background: string | undefined;
     darkPalette: boolean | undefined;
-    sidebarText: string | undefined;
-    sidebarBackground: string | undefined;
   };
   onboarding_step: TOnboardingSteps;
   is_onboarded: boolean;
@@ -101,14 +103,10 @@ export interface IUserSettings {
 }
 
 export interface IUserTheme {
-  text: string | undefined;
-  theme: string | undefined;
-  palette: string | undefined;
-  primary: string | undefined;
-  background: string | undefined;
-  darkPalette: boolean | undefined;
-  sidebarText: string | undefined;
-  sidebarBackground: string | undefined;
+  theme: string | undefined; // 'light', 'dark', 'custom', etc.
+  primary?: string | undefined;
+  background?: string | undefined;
+  darkPalette?: boolean | undefined;
 }
 
 export interface IUserMemberLite extends IUserLite {

@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import React, { useMemo } from "react";
 import { observer } from "mobx-react";
 // plane imports
@@ -34,8 +39,8 @@ export const IssueLinksCollapsibleTitle = observer(function IssueLinksCollapsibl
   // indicator element
   const indicatorElement = useMemo(
     () => (
-      <span className="flex items-center justify-center ">
-        <p className="text-base text-custom-text-300 !leading-3">{linksCount}</p>
+      <span className="flex items-center justify-center">
+        <p className="text-14 !leading-3 text-tertiary">{linksCount}</p>
       </span>
     ),
     [linksCount]

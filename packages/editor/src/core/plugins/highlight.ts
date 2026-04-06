@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
@@ -18,7 +24,7 @@ const buildDecorations = (doc: Parameters<typeof DecorationSet.create>[0], highl
   }
 
   const decorations: Decoration[] = [];
-  const highlightClassNames = ["bg-custom-primary-100/20", "transition-all", "duration-300", "rounded"];
+  const highlightClassNames = ["bg-accent-primary/20", "transition-all", "duration-300", "rounded"];
 
   doc.descendants((node, pos) => {
     // Check if this node has the id we're looking for

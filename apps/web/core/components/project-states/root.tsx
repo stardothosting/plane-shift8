@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { useMemo } from "react";
 import { observer } from "mobx-react";
 import useSWR from "swr";
@@ -62,13 +67,11 @@ export const ProjectStateRoot = observer(function ProjectStateRoot(props: TProje
   if (!groupedProjectStates) return <ProjectStateLoader />;
 
   return (
-    <div className="py-3">
-      <GroupList
-        groupedStates={groupedProjectStates}
-        stateOperationsCallbacks={stateOperationsCallbacks}
-        isEditable={isEditable}
-        shouldTrackEvents
-      />
-    </div>
+    <GroupList
+      groupedStates={groupedProjectStates}
+      stateOperationsCallbacks={stateOperationsCallbacks}
+      isEditable={isEditable}
+      shouldTrackEvents
+    />
   );
 });

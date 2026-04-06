@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import type { Content, Extensions, JSONContent, RawCommands } from "@tiptap/core";
 import type { MarkType, NodeType } from "@tiptap/pm/model";
 import type { Selection } from "@tiptap/pm/state";
@@ -120,6 +126,7 @@ export type CoreEditorRefApi = {
   getDocumentInfo: () => TDocumentInfo;
   getHeadings: () => IMarking[];
   getMarkDown: () => string;
+  copyMarkdownToClipboard: () => void;
   getSelectedText: () => string | null;
   insertText: (contentHTML: string, insertOnNextLine?: boolean) => void;
   isAnyDropbarOpen: () => boolean;
@@ -170,6 +177,7 @@ export type IEditorProps = {
   onEnterKeyPress?: (e?: any) => void;
   onTransaction?: () => void;
   placeholder?: string | ((isFocused: boolean, value: string) => string);
+  showPlaceholderOnEmpty?: boolean;
   tabIndex?: number;
   value?: string | null;
   extendedEditorProps: IEditorPropsExtended;

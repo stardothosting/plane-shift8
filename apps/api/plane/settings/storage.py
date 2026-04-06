@@ -1,3 +1,7 @@
+# Copyright (c) 2023-present Plane Software, Inc. and contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# See the LICENSE file for details.
+
 # Python imports
 import os
 import uuid
@@ -182,6 +186,18 @@ class S3Storage(S3Boto3Storage):
                 self.aws_storage_bucket_name,
                 object_name,
                 ExtraArgs=extra_args,
+            )
+            return True
+        except ClientError as e:
+            log_exception(e)
+            return False
+
+    def delete_files(self, object_names):
+        """Delete an S3 object"""
+        try:
+            self.s3_client.delete_objects(
+                Bucket=self.aws_storage_bucket_name,
+                Delete={"Objects": [{"Key": object_name} for object_name in object_names]},
             )
             return True
         except ClientError as e:

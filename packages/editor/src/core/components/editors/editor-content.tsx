@@ -1,6 +1,12 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import type { FC, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 type Props = {
   className?: string;
@@ -10,7 +16,7 @@ type Props = {
   tabIndex?: number;
 };
 
-export const EditorContentWrapper: FC<Props> = (props) => {
+export function EditorContentWrapper(props: Props) {
   const { editor, className, children, tabIndex, id } = props;
 
   return (
@@ -23,4 +29,4 @@ export const EditorContentWrapper: FC<Props> = (props) => {
       {children}
     </div>
   );
-};
+}

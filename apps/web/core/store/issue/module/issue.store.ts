@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { action, makeObservable, runInAction } from "mobx";
 // base class
 import type {
@@ -111,7 +117,7 @@ export class ModuleIssues extends BaseIssuesStore implements IModuleIssues {
       const moduleId = id ?? this.moduleId;
 
       moduleId && this.rootIssueStore.rootStore.module.updateModuleDistribution(distributionUpdates, moduleId);
-    } catch (e) {
+    } catch (_e) {
       console.warn("could not update module statistics");
     }
   };

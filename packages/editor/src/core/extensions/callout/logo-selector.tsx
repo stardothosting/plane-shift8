@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 // plane imports
 import { EmojiPicker, EmojiIconPickerTypes, Logo } from "@plane/propel/emoji-icon-picker";
 import type { TLogoProps } from "@plane/types";
@@ -33,12 +39,12 @@ export function CalloutBlockLogoSelector(props: Props) {
   return (
     <div contentEditable={false}>
       <EmojiPicker
-        closeOnSelect={false}
+        closeOnSelect={true}
         isOpen={isOpen}
         handleToggle={handleOpen}
-        className="flex-shrink-0 grid place-items-center"
-        buttonClassName={cn("flex-shrink-0 size-8 grid place-items-center rounded-lg", {
-          "hover:bg-white/10": !disabled,
+        className="grid flex-shrink-0 place-items-center"
+        buttonClassName={cn("grid size-8 flex-shrink-0 place-items-center rounded-lg text-primary", {
+          "hover:bg-layer-1-hover": !disabled,
         })}
         label={<Logo logo={logoValue} size={18} type="lucide" />}
         onChange={(val) => {

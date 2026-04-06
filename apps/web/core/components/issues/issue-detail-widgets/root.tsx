@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import React from "react";
 // plane imports
 import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
@@ -30,7 +35,7 @@ export function IssueDetailWidgets(props: Props) {
 
   return (
     <>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col space-y-4">
         <IssueDetailWidgetActionButtons
           workspaceSlug={workspaceSlug}
           projectId={projectId}

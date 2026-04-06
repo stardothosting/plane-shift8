@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { Fragment, useState } from "react";
 // components
 import { observer } from "mobx-react";
@@ -35,7 +40,6 @@ export const WorkspaceDraftEmptyState = observer(function WorkspaceDraftEmptySta
           title={t("workspace_empty_state.drafts.title")}
           description={t("workspace_empty_state.drafts.description")}
           assetKey="draft"
-          assetClassName="size-20"
           actions={[
             {
               label: t("workspace_empty_state.drafts.cta_primary"),

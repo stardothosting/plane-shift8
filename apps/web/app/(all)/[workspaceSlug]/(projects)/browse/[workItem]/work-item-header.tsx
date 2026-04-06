@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import React from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
@@ -40,7 +46,7 @@ export const WorkItemDetailsHeader = observer(function WorkItemDetailsHeader() {
               <BreadcrumbLink
                 label="Work Items"
                 href={`/${workspaceSlug}/projects/${projectId}/issues/`}
-                icon={<WorkItemsIcon className="h-4 w-4 text-custom-text-300" />}
+                icon={<WorkItemsIcon className="h-4 w-4 text-tertiary" />}
               />
             }
           />
