@@ -1,3 +1,7 @@
+# Copyright (c) 2023-present Plane Software, Inc. and contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# See the LICENSE file for details.
+
 """
 Common OpenAPI parameters for drf-spectacular.
 
@@ -490,4 +494,12 @@ EXPAND_PARAMETER = OpenApiParameter(
             description="Include details for multiple relations",
         ),
     ],
+)
+
+ESTIMATE_ID_PARAMETER = OpenApiParameter(
+    name="estimate_id",
+    description="Estimate ID",
+    required=True,
+    type=OpenApiTypes.UUID,
+    location=OpenApiParameter.PATH,
 )

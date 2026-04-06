@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { isEqual, set } from "lodash-es";
 import { action, makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
@@ -336,5 +342,5 @@ export class BaseTimeLineStore implements IBaseTimelineStore {
   });
 
   // Dummy method to return if the current Block's dependency is being dragged
-  getIsCurrentDependencyDragging = computedFn((blockId: string) => false);
+  getIsCurrentDependencyDragging = computedFn((_blockId: string) => false);
 }

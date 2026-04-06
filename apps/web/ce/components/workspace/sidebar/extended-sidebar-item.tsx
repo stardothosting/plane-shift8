@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { draggable, dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
@@ -152,14 +158,14 @@ export const ExtendedSidebarItem = observer(function ExtendedSidebarItem(props: 
     <div
       id={`sidebar-${item.key}`}
       className={cn("relative", {
-        "bg-custom-sidebar-background-80 opacity-60": isDragging,
+        "bg-layer-1 opacity-60": isDragging,
       })}
       ref={navigationIemRef}
     >
       <DropIndicator classNames="absolute top-0" isVisible={instruction === "DRAG_OVER"} />
       <div
         className={cn(
-          "group/project-item relative w-full  flex items-center rounded-md text-custom-sidebar-text-100 hover:bg-custom-sidebar-background-90"
+          "group/project-item relative flex w-full items-center rounded-md text-primary hover:bg-surface-2"
         )}
         id={`${item.key}`}
       >
@@ -173,7 +179,7 @@ export const ExtendedSidebarItem = observer(function ExtendedSidebarItem(props: 
             <button
               type="button"
               className={cn(
-                "flex items-center justify-center absolute top-1/2 -left-3 -translate-y-1/2 rounded text-custom-sidebar-text-400 cursor-grab group-hover/project-item:opacity-100 opacity-0",
+                "absolute top-1/2 -left-3 flex -translate-y-1/2 cursor-grab items-center justify-center rounded text-placeholder opacity-0 group-hover/project-item:opacity-100",
                 {
                   "cursor-grabbing": isDragging,
                   "opacity-100": isDragging,
@@ -189,7 +195,7 @@ export const ExtendedSidebarItem = observer(function ExtendedSidebarItem(props: 
           <Link href={itemHref} onClick={() => handleLinkClick()} className="group flex-grow">
             <div className="flex items-center gap-1.5 py-[1px]">
               {icon}
-              <p className="text-sm leading-5 font-medium">{t(item.labelTranslationKey)}</p>
+              <p className="text-13 leading-5 font-medium">{t(item.labelTranslationKey)}</p>
             </div>
           </Link>
           <div className="flex items-center gap-2">
@@ -201,14 +207,14 @@ export const ExtendedSidebarItem = observer(function ExtendedSidebarItem(props: 
             {isPinned ? (
               <Tooltip tooltipContent="Unpin">
                 <PinOff
-                  className="size-3.5 flex-shrink-0 hover:text-custom-text-300 outline-none text-custom-text-400"
+                  className="size-3.5 flex-shrink-0 text-placeholder outline-none hover:text-tertiary"
                   onClick={() => unPinNavigationItem(item.key)}
                 />
               </Tooltip>
             ) : (
               <Tooltip tooltipContent="Pin">
                 <Pin
-                  className="size-3.5 flex-shrink-0 hover:text-custom-text-300 outline-none text-custom-text-400"
+                  className="size-3.5 flex-shrink-0 text-placeholder outline-none hover:text-tertiary"
                   onClick={() => pinNavigationItem(item.key)}
                 />
               </Tooltip>

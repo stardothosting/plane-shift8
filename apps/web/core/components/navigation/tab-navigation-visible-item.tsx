@@ -1,4 +1,9 @@
-import React from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { Link } from "react-router";
 import { PinOff } from "lucide-react";
 // plane imports
@@ -35,9 +40,9 @@ export function TabNavigationVisibleItem({
   const isDefault = item.key === tabPreferences.defaultTab;
 
   return (
-    <div className="relative h-full flex items-center transition-all duration-300">
+    <div className="relative flex h-full items-center transition-all duration-300">
       {isActive && (
-        <span className="absolute bottom-0 w-[80%] left-1/2 -translate-x-1/2 h-0.5 bg-custom-text-300 rounded-t-md transition-all duration-300" />
+        <span className="absolute bottom-0 left-1/2 h-0.5 w-[80%] -translate-x-1/2 rounded-t-md bg-(--text-color-icon-primary) transition-all duration-300" />
       )}
       <div key={`${item.key}-measure`} ref={itemRef}>
         <ContextMenu>
@@ -55,20 +60,20 @@ export function TabNavigationVisibleItem({
                   e.stopPropagation();
                   onToggleDefault(item.key);
                 }}
-                className="flex items-center gap-2 text-custom-text-200 transition-colors cursor-pointer"
+                className="flex cursor-pointer items-center gap-2 text-secondary transition-colors"
               >
-                <SetAsDefaultIcon className="shrink-0 size-3" />
-                <span className="text-xs">{isDefault ? "Clear default" : "Set as default"}</span>
+                <SetAsDefaultIcon className="size-3 shrink-0" />
+                <span className="text-11">{isDefault ? "Clear default" : "Set as default"}</span>
               </ContextMenu.Item>
               <ContextMenu.Item
                 onClick={(e) => {
                   e.stopPropagation();
                   onHide(item.key);
                 }}
-                className="flex items-center gap-2 text-custom-text-200 transition-colors cursor-pointer"
+                className="flex cursor-pointer items-center gap-2 text-secondary transition-colors"
               >
-                <PinOff className="shrink-0 size-3" />
-                <span className="text-xs">Hide in more menu</span>
+                <PinOff className="size-3 shrink-0" />
+                <span className="text-11">Hide in more menu</span>
               </ContextMenu.Item>
             </ContextMenu.Content>
           </ContextMenu.Portal>

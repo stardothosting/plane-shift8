@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import React from "react";
 import { observer } from "mobx-react";
 // plane imports
@@ -41,7 +47,7 @@ export const IssueParentSelectRoot = observer(function IssueParentSelectRoot(pro
       await issueOperations.fetch(workspaceSlug, projectId, issueId, false);
       if (_issueId) await fetchSubIssues(workspaceSlug, projectId, _issueId);
       toggleParentIssueModal(null);
-    } catch (error) {
+    } catch (_error) {
       console.error("something went wrong while fetching the issue");
     }
   };
@@ -57,7 +63,7 @@ export const IssueParentSelectRoot = observer(function IssueParentSelectRoot(pro
       await removeSubIssue(workspaceSlug, projectId, parentIssueId, issueId);
       await fetchSubIssues(workspaceSlug, projectId, parentIssueId);
       setSubIssueHelpers(parentIssueId, "issue_loader", issueId);
-    } catch (error) {
+    } catch (_error) {
       setToast({
         type: TOAST_TYPE.ERROR,
         title: t("common.error.label"),

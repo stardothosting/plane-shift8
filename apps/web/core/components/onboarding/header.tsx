@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { observer } from "mobx-react";
 // plane imports
 import { PlaneLockup, ChevronLeftIcon } from "@plane/propel/icons";
@@ -63,23 +68,23 @@ export const OnboardingHeader = observer(function OnboardingHeader(props: Onboar
       : user?.email;
 
   return (
-    <div className="flex flex-col gap-4 sticky top-0 z-10">
-      <div className="h-1.5 rounded-t-lg w-full bg-custom-background-100 overflow-hidden cursor-pointer">
+    <div className="sticky top-0 z-10 flex flex-col gap-4">
+      <div className="h-1.5 w-full cursor-pointer overflow-hidden rounded-t-lg bg-surface-1">
         <Tooltip tooltipContent={`${currentStepNumber}/${totalSteps}`} position="bottom-end">
           <div
-            className="h-full bg-custom-primary-100 transition-all duration-700 ease-out"
+            className="h-full bg-accent-primary transition-all duration-700 ease-out"
             style={{ width: `${(currentStepNumber / totalSteps) * 100}%` }}
           />
         </Tooltip>
       </div>
-      <div className={cn("flex items-center justify-between gap-6 w-full px-6", canGoBack && "pl-4 pr-6")}>
+      <div className={cn("flex w-full items-center justify-between gap-6 px-6", canGoBack && "pr-6 pl-4")}>
         <div className="flex items-center gap-2.5">
           {canGoBack && (
             <button onClick={handleStepBack} className="cursor-pointer" type="button" disabled={!canGoBack}>
-              <ChevronLeftIcon className="size-6 text-custom-text-400" />
+              <ChevronLeftIcon className="size-6 text-placeholder" />
             </button>
           )}
-          <PlaneLockup height={20} width={95} className="text-custom-text-100" />
+          <PlaneLockup height={20} width={95} className="text-primary" />
         </div>
         <SwitchAccountDropdown fullName={userName} />
       </div>

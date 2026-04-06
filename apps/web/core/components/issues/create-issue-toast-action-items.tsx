@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import React, { useState } from "react";
 import { observer } from "mobx-react";
 import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
@@ -18,7 +23,7 @@ type TCreateIssueToastActionItems = {
 export const CreateIssueToastActionItems = observer(function CreateIssueToastActionItems(
   props: TCreateIssueToastActionItems
 ) {
-  const { workspaceSlug, projectId, issueId, isEpic = false } = props;
+  const { workspaceSlug, issueId, isEpic = false } = props;
   // state
   const [copied, setCopied] = useState(false);
   // store hooks
@@ -47,7 +52,7 @@ export const CreateIssueToastActionItems = observer(function CreateIssueToastAct
       await copyUrlToClipboard(workItemLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-    } catch (error) {
+    } catch (_error) {
       setCopied(false);
     }
     e.preventDefault();
@@ -55,24 +60,24 @@ export const CreateIssueToastActionItems = observer(function CreateIssueToastAct
   };
 
   return (
-    <div className="flex items-center gap-1 text-xs text-custom-text-200">
+    <div className="-ml-2 flex items-center gap-1 text-11 text-secondary">
       <a
         href={workItemLink}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-custom-primary px-2 py-1 hover:bg-custom-background-90 font-medium rounded"
+        className="rounded-sm px-2 py-1 font-medium text-accent-primary hover:bg-surface-2"
       >
         {`View ${isEpic ? "epic" : "work item"}`}
       </a>
 
       {copied ? (
         <>
-          <span className="cursor-default px-2 py-1 text-custom-text-200">Copied!</span>
+          <span className="cursor-default px-2 py-1 text-secondary">Copied!</span>
         </>
       ) : (
         <>
           <button
-            className="cursor-pointer hidden group-hover:flex px-2 py-1 text-custom-text-300 hover:text-custom-text-200 hover:bg-custom-background-90 rounded"
+            className="hidden cursor-pointer rounded-sm px-2 py-1 text-tertiary group-hover:flex hover:bg-surface-2 hover:text-secondary"
             onClick={copyToClipboard}
           >
             Copy link

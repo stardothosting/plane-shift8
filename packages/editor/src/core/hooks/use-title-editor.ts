@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import type { HocuspocusProvider } from "@hocuspocus/provider";
 import type { Extensions } from "@tiptap/core";
 import { Placeholder } from "@tiptap/extension-placeholder";
@@ -13,7 +19,7 @@ import { getEditorRefHelpers } from "@/helpers/editor-ref";
 import type { IEditorPropsExtended, IEditorProps } from "@/types";
 import type { EditorTitleRefApi, ICollaborativeDocumentEditorProps } from "@/types/editor";
 
-type Props = {
+type TUseTitleEditorProps = {
   editable?: boolean;
   provider: HocuspocusProvider;
   titleRef?: React.MutableRefObject<EditorTitleRefApi | null>;
@@ -31,7 +37,7 @@ type Props = {
  * A hook that creates a title editor with collaboration features
  * Uses the same Y.Doc as the main editor but a different field
  */
-export const useTitleEditor = (props: Props) => {
+export const useTitleEditor = (props: TUseTitleEditorProps) => {
   const {
     editable = true,
     id,

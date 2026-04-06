@@ -5,7 +5,7 @@ SCRIPT_DIR=$PWD
 SERVICE_FOLDER=plane-app
 PLANE_INSTALL_DIR=$PWD/$SERVICE_FOLDER
 export APP_RELEASE=stable
-export DOCKERHUB_USER=artifacts.plane.so/makeplane
+export DOCKERHUB_USER=makeplane
 export PULL_POLICY=${PULL_POLICY:-if_not_present}
 export GH_REPO=makeplane/plane
 export RELEASE_DOWNLOAD_URL="https://github.com/$GH_REPO/releases/download"
@@ -23,16 +23,16 @@ function print_header() {
 clear
 
 cat <<"EOF"
---------------------------------------------
- ____  _                          ///////// 
-|  _ \| | __ _ _ __   ___         ///////// 
-| |_) | |/ _` | '_ \ / _ \   /////    ///// 
-|  __/| | (_| | | | |  __/   /////    ///// 
-|_|   |_|\__,_|_| |_|\___|        ////      
-                                  ////      
---------------------------------------------
-Project management tool from the future
---------------------------------------------
+##+.    ##+    .##-                  
+ ######+.######-.######.              
+ #######.   -###    +#####+.          
+ #######.      +       +######.       
+ #######.              .#######       
+ #######.              .#######       
+  #######       +      .#######       
+    .+#####+    ###-   .#######       
+        .######.-#####+.+######       
+            -##.    -##    .+##
 EOF
 }
 
@@ -690,7 +690,7 @@ if [ -f "$DOCKER_ENV_PATH" ]; then
     CUSTOM_BUILD=$(getEnvValue "CUSTOM_BUILD" "$DOCKER_ENV_PATH")
 
     if [ -z "$DOCKERHUB_USER" ]; then
-        DOCKERHUB_USER=artifacts.plane.so/makeplane
+        DOCKERHUB_USER=makeplane
         updateEnvFile "DOCKERHUB_USER" "$DOCKERHUB_USER" "$DOCKER_ENV_PATH"
     fi
 

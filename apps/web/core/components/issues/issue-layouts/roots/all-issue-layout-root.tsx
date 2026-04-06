@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import React, { useCallback, useMemo } from "react";
 import { observer } from "mobx-react";
 import { useParams, useSearchParams } from "next/navigation";
@@ -8,7 +14,6 @@ import { EmptyStateDetailed } from "@plane/propel/empty-state";
 import type { EIssueLayoutTypes } from "@plane/types";
 import { EIssuesStoreType, STATIC_VIEW_TYPES } from "@plane/types";
 // assets
-import emptyView from "@/app/assets/empty-state/view.svg?url";
 // components
 import { IssuePeekOverview } from "@/components/issues/peek-overview";
 import { WorkspaceActiveLayout } from "@/components/views/helper";
@@ -141,8 +146,8 @@ export const AllIssueLayoutRoot = observer(function AllIssueLayoutRoot(props: Pr
         workspaceSlug={workspaceSlug}
       >
         {({ filter: globalWorkItemsFilter }) => (
-          <div className="h-full overflow-hidden bg-custom-background-100">
-            <div className="flex h-full w-full flex-col border-b border-custom-border-300">
+          <div className="h-full overflow-hidden bg-surface-1">
+            <div className="flex h-full w-full flex-col border-b border-strong">
               {globalWorkItemsFilter && (
                 <WorkItemFiltersRow
                   filter={globalWorkItemsFilter}

@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { useState } from "react";
 import { isNil } from "lodash-es";
 import { observer } from "mobx-react";
@@ -77,12 +82,12 @@ export const IssueSubscription = observer(function IssueSubscription(props: TIss
   return (
     <div>
       <Button
-        size="sm"
         prependIcon={isSubscribed ? <BellOff /> : <Bell className="h-3 w-3" />}
-        variant="outline-primary"
-        className="hover:!bg-custom-primary-100/20"
+        variant="secondary"
+        className="hover:!bg-accent-primary/20"
         onClick={handleSubscription}
         disabled={!isEditable || loading}
+        size="lg"
       >
         {loading ? (
           <span>

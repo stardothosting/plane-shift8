@@ -1,10 +1,16 @@
-import React, { useCallback } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { useCallback } from "react";
 import { observer } from "mobx-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRightCircle } from "lucide-react";
-import { Tab } from "@headlessui/react";
 // plane imports
 import { useTranslation } from "@plane/i18n";
+import { Tabs } from "@plane/propel/tabs";
 import { Tooltip } from "@plane/propel/tooltip";
 // hooks
 import { useQueryParams } from "@/hooks/use-query-params";
@@ -20,7 +26,6 @@ import { PageNavigationPaneTabsList } from "./tabs-list";
 import type { INavigationPaneExtension } from "./types/extensions";
 
 import {
-  PAGE_NAVIGATION_PANE_TAB_KEYS,
   PAGE_NAVIGATION_PANE_TABS_QUERY_PARAM,
   PAGE_NAVIGATION_PANE_VERSION_QUERY_PARAM,
   PAGE_NAVIGATION_PANE_WIDTH,
@@ -49,10 +54,9 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
     PAGE_NAVIGATION_PANE_TABS_QUERY_PARAM
   ) as TPageNavigationPaneTab | null;
   const activeTab: TPageNavigationPaneTab = navigationPaneQueryParam || "outline";
-  const selectedIndex = PAGE_NAVIGATION_PANE_TAB_KEYS.indexOf(activeTab);
 
   // Check if any extension is currently active based on query parameters
-  const ActiveExtension = extensions.find(function ActiveExtension(extension) {
+  const ActiveExtension = extensions.find((extension) => {
     const paneTabValue = searchParams.get(PAGE_NAVIGATION_PANE_TABS_QUERY_PARAM);
     const hasVersionParam = searchParams.get(PAGE_NAVIGATION_PANE_VERSION_QUERY_PARAM);
 
@@ -69,8 +73,8 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
   const { t } = useTranslation();
 
   const handleTabChange = useCallback(
-    (index: number) => {
-      const updatedTab = PAGE_NAVIGATION_PANE_TAB_KEYS[index];
+    (value: string) => {
+      const updatedTab = value as TPageNavigationPaneTab;
       const isUpdatedTabInfo = updatedTab === "info";
       const updatedRoute = updateQueryParams({
         paramsToAdd: { [PAGE_NAVIGATION_PANE_TABS_QUERY_PARAM]: updatedTab },
@@ -83,7 +87,7 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
 
   return (
     <aside
-      className="flex-shrink-0 h-full flex flex-col bg-custom-background-100 pt-3.5 border-l border-custom-border-200 transition-all duration-300 ease-out"
+      className="flex h-full shrink-0 flex-col border-l border-subtle bg-surface-1 pt-3.5 transition-all duration-300 ease-out"
       style={{
         width: `${paneWidth}px`,
         marginRight: isNavigationPaneOpen ? "0px" : `-${paneWidth}px`,
@@ -93,7 +97,7 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
         <Tooltip tooltipContent={t("page_navigation_pane.close_button")}>
           <button
             type="button"
-            className="size-3.5 grid place-items-center text-custom-text-200 hover:text-custom-text-100 transition-colors"
+            className="grid size-3.5 place-items-center text-secondary transition-colors hover:text-primary"
             onClick={handleClose}
             aria-label={t("page_navigation_pane.close_button")}
           >
@@ -102,14 +106,14 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
         </Tooltip>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden animate-slide-in-right">
+      <div className="animate-slide-in-right flex flex-1 flex-col overflow-hidden">
         {ActiveExtension ? (
           <ActiveExtension.component page={page} extensionData={ActiveExtension.data} storeType={storeType} />
         ) : showNavigationTabs ? (
-          <Tab.Group as={React.Fragment} selectedIndex={selectedIndex} onChange={handleTabChange}>
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <PageNavigationPaneTabsList />
             <PageNavigationPaneTabPanelsRoot page={page} versionHistory={versionHistory} />
-          </Tab.Group>
+          </Tabs>
         ) : null}
       </div>
     </aside>

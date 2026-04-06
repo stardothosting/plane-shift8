@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { Command } from "cmdk";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
@@ -6,7 +12,6 @@ import type { IWorkspaceSearchResults } from "@plane/types";
 // hooks
 import { useAppRouter } from "@/hooks/use-app-router";
 // helpers
-import { openProjectAndScrollToSidebar } from "../../actions/helper";
 import { PowerKModalCommandItem } from "./command-item";
 import { POWER_K_SEARCH_RESULTS_GROUPS_MAP } from "./search-results-map";
 

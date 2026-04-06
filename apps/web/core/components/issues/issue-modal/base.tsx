@@ -1,8 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
-import { xor } from "lodash-es";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { isEqual, xor } from "lodash-es";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { WORK_ITEM_TRACKER_EVENTS } from "@plane/constants";
 // Plane imports
 import { useTranslation } from "@plane/i18n";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
@@ -10,7 +15,6 @@ import type { TBaseIssue, TIssue } from "@plane/types";
 import { EIssuesStoreType } from "@plane/types";
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 // hooks
-import { captureError, captureSuccess } from "@/helpers/event-tracker.helper";
 import { useIssueModal } from "@/hooks/context/use-issue-modal";
 import { useCycle } from "@/hooks/store/use-cycle";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -44,6 +48,7 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
     modalTitle,
     primaryButtonText,
     isProjectSelectionDisabled = false,
+    showActionItemsOnUpdate = false,
   } = props;
   const issueStoreType = useIssueStoreType();
 
@@ -240,10 +245,6 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
           />
         ),
       });
-      captureSuccess({
-        eventName: WORK_ITEM_TRACKER_EVENTS.create,
-        payload: { id: response.id },
-      });
       if (!createMore) handleClose();
       if (createMore && issueTitleRef) issueTitleRef?.current?.focus();
       setDescription("<p></p>");
@@ -255,12 +256,68 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
         title: t("error"),
         message: error?.error ?? t(is_draft_issue ? "draft_creation_failed" : "issue_creation_failed"),
       });
-      captureError({
-        eventName: WORK_ITEM_TRACKER_EVENTS.create,
-        payload: { id: payload.id },
-        error: error as Error,
-      });
       throw error;
+    }
+  };
+
+  const handleCycleChange = async (data: Partial<TIssue> | undefined, payload: Partial<TIssue>) => {
+    if (!workspaceSlug || !data?.project_id || !data?.id) return;
+    // return if user is not trying to change the cycle, i.e
+    // - cycle_id is not present in payload
+    // - cycle_id is the same as the current cycle id
+    if (!("cycle_id" in payload) || isEqual(data?.cycle_id, payload.cycle_id)) return;
+
+    const slug = workspaceSlug.toString();
+
+    // Removing the cycle
+    const currentCycleId = data?.cycle_id;
+    if (currentCycleId && payload.cycle_id === null) {
+      await issues.removeIssueFromCycle(slug, data.project_id, currentCycleId, data.id);
+      fetchCycleDetails(slug, data.project_id, currentCycleId).catch((error) => {
+        console.error(error);
+      });
+    }
+
+    // Adding the cycle
+    const newCycleId = payload.cycle_id;
+    if (newCycleId && newCycleId !== "" && (payload.cycle_id !== cycleId || storeType !== EIssuesStoreType.CYCLE)) {
+      await addIssueToCycle(data as TBaseIssue, newCycleId);
+    }
+  };
+
+  const handleModuleChange = async (data: Partial<TIssue>, payload: Partial<TIssue>) => {
+    if (!workspaceSlug || !data?.project_id || !data?.id) return;
+    // return if user is not trying to change the module, i.e
+    // - module_ids is not present in payload
+    // - module_ids is not an array
+    // - module_ids is the same as the current module ids
+    if (
+      !("module_ids" in payload) ||
+      !Array.isArray(payload.module_ids) ||
+      isEqual(data?.module_ids, payload.module_ids)
+    )
+      return;
+
+    const updatedModuleIds = xor(data.module_ids, payload.module_ids);
+    const modulesToAdd: string[] = [];
+    const modulesToRemove: string[] = [];
+
+    for (const moduleId of updatedModuleIds) {
+      if (data.module_ids?.includes(moduleId)) {
+        modulesToRemove.push(moduleId);
+      } else {
+        modulesToAdd.push(moduleId);
+      }
+    }
+    // update modules if there are modules to add or remove
+    if (modulesToAdd.length > 0 || modulesToRemove.length > 0) {
+      await issues.changeModulesInIssue(
+        workspaceSlug.toString(),
+        data.project_id,
+        data.id,
+        modulesToAdd,
+        modulesToRemove
+      );
     }
   };
 
@@ -271,41 +328,10 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
       if (isDraft) await draftIssues.updateIssue(workspaceSlug.toString(), data.id, payload);
       else if (updateIssue) await updateIssue(payload.project_id, data.id, payload);
 
-      // check if we should add/remove issue to/from cycle
-      if (
-        payload.cycle_id &&
-        payload.cycle_id !== "" &&
-        (payload.cycle_id !== cycleId || storeType !== EIssuesStoreType.CYCLE)
-      ) {
-        await addIssueToCycle(data as TBaseIssue, payload.cycle_id);
-      }
-      if (data.cycle_id && !payload.cycle_id && data.project_id) {
-        await issues.removeIssueFromCycle(workspaceSlug.toString(), data.project_id, data.cycle_id, data.id);
-        fetchCycleDetails(workspaceSlug.toString(), data.project_id, data.cycle_id);
-      }
-
-      if (data.module_ids && payload.module_ids && data.project_id) {
-        const updatedModuleIds = xor(data.module_ids, payload.module_ids);
-        const modulesToAdd: string[] = [];
-        const modulesToRemove: string[] = [];
-
-        for (const moduleId of updatedModuleIds) {
-          if (data.module_ids.includes(moduleId)) {
-            modulesToRemove.push(moduleId);
-          } else {
-            modulesToAdd.push(moduleId);
-          }
-        }
-        await issues.changeModulesInIssue(
-          workspaceSlug.toString(),
-          data.project_id,
-          data.id,
-          modulesToAdd,
-          modulesToRemove
-        );
-      }
-
-      // add other property values
+      // Run cycle, module, and property changes sequentially to avoid
+      // optimistic store writes from racing against each other.
+      await handleCycleChange(data, payload);
+      await handleModuleChange(data, payload);
       await handleCreateUpdatePropertyValues({
         issueId: data.id,
         issueTypeId: payload.type_id,
@@ -318,10 +344,14 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
         type: TOAST_TYPE.SUCCESS,
         title: t("success"),
         message: t("issue_updated_successfully"),
-      });
-      captureSuccess({
-        eventName: WORK_ITEM_TRACKER_EVENTS.update,
-        payload: { id: data.id },
+        actionItems:
+          showActionItemsOnUpdate && payload.project_id ? (
+            <CreateIssueToastActionItems
+              workspaceSlug={workspaceSlug.toString()}
+              projectId={payload.project_id}
+              issueId={data.id}
+            />
+          ) : undefined,
       });
       handleClose();
     } catch (error: any) {
@@ -330,11 +360,6 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
         type: TOAST_TYPE.ERROR,
         title: t("error"),
         message: error?.error ?? t("issue_could_not_be_updated"),
-      });
-      captureError({
-        eventName: WORK_ITEM_TRACKER_EVENTS.update,
-        payload: { id: data.id },
-        error: error as Error,
       });
     }
   };
@@ -392,7 +417,7 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
       isOpen={isOpen}
       position={EModalPosition.TOP}
       width={isDuplicateModalOpen ? EModalWidth.VIXL : EModalWidth.XXXXL}
-      className="!bg-transparent rounded-lg shadow-none transition-[width] ease-linear"
+      className="rounded-lg !bg-transparent shadow-none transition-[width] ease-linear"
     >
       {withDraftIssueWrapper ? (
         <DraftIssueLayout {...commonIssueModalProps} changesMade={changesMade} onChange={handleFormChange} />

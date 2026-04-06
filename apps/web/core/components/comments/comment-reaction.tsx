@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { useMemo, useState } from "react";
 import { observer } from "mobx-react";
 // plane imports
@@ -6,7 +11,6 @@ import { stringToEmoji } from "@plane/propel/emoji-icon-picker";
 import { EmojiReactionGroup, EmojiReactionPicker } from "@plane/propel/emoji-reaction";
 import type { EmojiReactionType } from "@plane/propel/emoji-reaction";
 import type { TCommentsOperations, TIssueComment } from "@plane/types";
-import { cn } from "@plane/utils";
 // helpers
 // local imports
 
@@ -61,6 +65,12 @@ export const CommentReactions = observer(function CommentReactions(props: TProps
 
   if (!userReactions) return null;
 
+  // Don't render anything if there are no reactions and it's disabled
+  if (reactions.length === 0 && disabled) return null;
+
+  // Don't show the add button if there are no reactions
+  const showAddButton = !disabled && reactions.length > 0;
+
   return (
     <div className="relative">
       <EmojiReactionPicker
@@ -72,7 +82,7 @@ export const CommentReactions = observer(function CommentReactions(props: TProps
           <EmojiReactionGroup
             reactions={reactions}
             onReactionClick={handleReactionClick}
-            showAddButton={!disabled}
+            showAddButton={showAddButton}
             onAddReaction={() => setIsPickerOpen(true)}
           />
         }

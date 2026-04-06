@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import type { TPaginationInfo } from "./common";
 import type { ICycle } from "./cycle";
 import type { TUserPermissions } from "./enums";
@@ -27,6 +33,7 @@ export interface IWorkspace {
   organization_size: string;
   total_projects?: number;
   role: number;
+  timezone: string;
 }
 
 export interface IWorkspaceLite {
@@ -228,7 +235,7 @@ export interface IWorkspaceProgressResponse {
   unstarted_issues: number;
 }
 export interface IWorkspaceAnalyticsResponse {
-  completion_chart: any;
+  completion_chart: Record<string, unknown>;
 }
 
 export type TWorkspacePaginationInfo = TPaginationInfo & {

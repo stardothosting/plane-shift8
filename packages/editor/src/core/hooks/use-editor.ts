@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { useEditorState, useEditor as useTiptapEditor } from "@tiptap/react";
 import { useImperativeHandle, useEffect } from "react";
 import type { MarkdownStorage } from "tiptap-markdown";
@@ -40,6 +46,7 @@ export const useEditor = (props: TEditorHookProps) => {
     onEditorFocus,
     onTransaction,
     placeholder,
+    showPlaceholderOnEmpty,
     tabIndex,
     provider,
     value,
@@ -70,6 +77,7 @@ export const useEditor = (props: TEditorHookProps) => {
           isTouchDevice,
           mentionHandler,
           placeholder,
+          showPlaceholderOnEmpty,
           tabIndex,
           provider,
         }),

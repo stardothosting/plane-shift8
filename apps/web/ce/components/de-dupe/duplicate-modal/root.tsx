@@ -1,4 +1,9 @@
-import type { FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 // types
 import type { TDeDupeIssue } from "@plane/types";
 
@@ -8,7 +13,6 @@ type TDuplicateModalRootProps = {
   handleDuplicateIssueModal: (value: boolean) => void;
 };
 
-export function DuplicateModalRoot(props: TDuplicateModalRootProps) {
-  const { workspaceSlug, issues, handleDuplicateIssueModal } = props;
+export function DuplicateModalRoot(_props: TDuplicateModalRootProps) {
   return <></>;
 }

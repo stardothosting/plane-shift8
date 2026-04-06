@@ -1,17 +1,18 @@
-import React, { useEffect, useState } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import { useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import { useForm } from "react-hook-form";
-// types
-import { MODULE_TRACKER_EVENTS } from "@plane/constants";
+// Plane imports
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IModule } from "@plane/types";
-// ui
 import { EModalPosition, EModalWidth, ModalCore } from "@plane/ui";
 // components
 import { ModuleForm } from "@/components/modules";
-// constants
-// helpers
-import { captureSuccess, captureError } from "@/helpers/event-tracker.helper";
 // hooks
 import { useModule } from "@/hooks/store/use-module";
 import { useProject } from "@/hooks/store/use-project";
@@ -57,16 +58,12 @@ export const CreateUpdateModuleModal = observer(function CreateUpdateModuleModal
 
     const selectedProjectId = payload.project_id ?? projectId.toString();
     await createModule(workspaceSlug.toString(), selectedProjectId, payload)
-      .then((res) => {
+      .then((_res) => {
         handleClose();
         setToast({
           type: TOAST_TYPE.SUCCESS,
           title: "Success!",
           message: "Module created successfully.",
-        });
-        captureSuccess({
-          eventName: MODULE_TRACKER_EVENTS.create,
-          payload: { id: res.id },
         });
       })
       .catch((err) => {
@@ -74,11 +71,6 @@ export const CreateUpdateModuleModal = observer(function CreateUpdateModuleModal
           type: TOAST_TYPE.ERROR,
           title: "Error!",
           message: err?.detail ?? err?.error ?? "Module could not be created. Please try again.",
-        });
-        captureError({
-          eventName: MODULE_TRACKER_EVENTS.create,
-          payload: { id: data?.id },
-          error: err,
         });
       });
   };
@@ -88,7 +80,7 @@ export const CreateUpdateModuleModal = observer(function CreateUpdateModuleModal
 
     const selectedProjectId = payload.project_id ?? projectId.toString();
     await updateModuleDetails(workspaceSlug.toString(), selectedProjectId, data.id, payload)
-      .then((res) => {
+      .then((_res) => {
         handleClose();
 
         setToast({
@@ -96,21 +88,12 @@ export const CreateUpdateModuleModal = observer(function CreateUpdateModuleModal
           title: "Success!",
           message: "Module updated successfully.",
         });
-        captureSuccess({
-          eventName: MODULE_TRACKER_EVENTS.update,
-          payload: { id: res.id },
-        });
       })
       .catch((err) => {
         setToast({
           type: TOAST_TYPE.ERROR,
           title: "Error!",
           message: err?.detail ?? err?.error ?? "Module could not be updated. Please try again.",
-        });
-        captureError({
-          eventName: MODULE_TRACKER_EVENTS.update,
-          payload: { id: data.id },
-          error: err,
         });
       });
   };

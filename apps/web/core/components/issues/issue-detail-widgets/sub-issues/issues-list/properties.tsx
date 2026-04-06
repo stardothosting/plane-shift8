@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 // plane imports
 import type { SyntheticEvent } from "react";
 import { useMemo } from "react";
@@ -116,7 +122,6 @@ export const SubIssuesListItemProperties = observer(function SubIssuesListItemPr
             }
             disabled={!canEdit}
             buttonVariant="border-without-text"
-            buttonClassName="border"
             showTooltip
           />
         </div>
@@ -134,6 +139,7 @@ export const SubIssuesListItemProperties = observer(function SubIssuesListItemPr
               from: getDate(issue.start_date) || undefined,
               to: getDate(issue.target_date) || undefined,
             }}
+            placement="top-end"
             onSelect={(range) => {
               handleStartDate(range?.from ?? null);
               handleTargetDate(range?.to ?? null);
@@ -144,11 +150,12 @@ export const SubIssuesListItemProperties = observer(function SubIssuesListItemPr
             isClearable
             mergeDates
             buttonVariant={issue.start_date || issue.target_date ? "border-with-text" : "border-without-text"}
-            buttonClassName={shouldHighlight ? "text-red-500" : ""}
+            buttonClassName={shouldHighlight ? "text-danger-primary" : ""}
             disabled={!canEdit}
             showTooltip
             customTooltipHeading="Date Range"
             renderPlaceholder={false}
+            renderInPortal
           />
         </div>
       </WithDisplayPropertiesHOC>
@@ -188,8 +195,8 @@ export const SubIssuesListItemProperties = observer(function SubIssuesListItemPr
             placeholder={t("common.order_by.due_date")}
             icon={<DueDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
             buttonVariant={issue.target_date ? "border-with-text" : "border-without-text"}
-            buttonClassName={shouldHighlight ? "text-red-500" : ""}
-            clearIconClassName="text-custom-text-100"
+            buttonClassName={shouldHighlight ? "text-danger-primary" : ""}
+            clearIconClassName="text-primary"
             optionsClassName="z-30"
             disabled={!canEdit}
             showTooltip

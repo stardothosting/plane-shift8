@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { observer } from "mobx-react";
 import { Shapes } from "lucide-react";
 // plane imports
@@ -24,10 +30,7 @@ export const WorkspaceDashboardHeader = observer(function WorkspaceDashboardHead
             <Breadcrumbs>
               <Breadcrumbs.Item
                 component={
-                  <BreadcrumbLink
-                    label={t("home.title")}
-                    icon={<HomeIcon className="h-4 w-4 text-custom-text-300" />}
-                  />
+                  <BreadcrumbLink label={t("home.title")} icon={<HomeIcon className="h-4 w-4 text-tertiary" />} />
                 }
               />
             </Breadcrumbs>
@@ -35,13 +38,13 @@ export const WorkspaceDashboardHeader = observer(function WorkspaceDashboardHead
         </Header.LeftItem>
         <Header.RightItem>
           <Button
-            variant="neutral-primary"
-            size="sm"
+            variant="secondary"
+            size="lg"
             onClick={() => toggleWidgetSettings(true)}
             className="my-auto mb-0"
+            prependIcon={<Shapes />}
           >
-            <Shapes size={16} />
-            <div className="hidden text-xs font-medium sm:hidden md:block">{t("home.manage_widgets")}</div>
+            <div className="hidden sm:hidden md:block">{t("home.manage_widgets")}</div>
           </Button>
         </Header.RightItem>
       </Header>

@@ -1,26 +1,35 @@
+# Copyright (c) 2023-present Plane Software, Inc. and contributors
+# SPDX-License-Identifier: AGPL-3.0-only
+# See the LICENSE file for details.
+
 # Python imports
+import logging
 import os
 import uuid
-import requests
 from io import BytesIO
+
+import requests
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 
 # Django imports
 from django.utils import timezone
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
-from django.conf import settings
 
 # Third party imports
 from zxcvbn import zxcvbn
 
-# Module imports
-from plane.db.models import Profile, User, WorkspaceMemberInvite, FileAsset
-from plane.license.utils.instance_value import get_configuration_value
-from .error import AuthenticationException, AUTHENTICATION_ERROR_CODES
 from plane.bgtasks.user_activation_email_task import user_activation_email
+
+# Module imports
+from plane.db.models import FileAsset, Profile, User, WorkspaceMemberInvite
+from plane.license.utils.instance_value import get_configuration_value
+from plane.settings.storage import S3Storage
+from plane.utils.exception_logger import log_exception
 from plane.utils.host import base_host
 from plane.utils.ip_address import get_client_ip
-from plane.utils.exception_logger import log_exception
+
+from .error import AUTHENTICATION_ERROR_CODES, AuthenticationException
 
 
 class Adapter:
@@ -32,6 +41,7 @@ class Adapter:
         self.callback = callback
         self.token_data = None
         self.user_data = None
+        self.logger = logging.getLogger("plane.authentication")
 
     def get_user_token(self, data, headers=None):
         raise NotImplementedError
@@ -54,6 +64,7 @@ class Adapter:
     def sanitize_email(self, email):
         # Check if email is present
         if not email:
+            self.logger.error("Email is not present")
             raise AuthenticationException(
                 error_code=AUTHENTICATION_ERROR_CODES["INVALID_EMAIL"],
                 error_message="INVALID_EMAIL",
@@ -67,6 +78,7 @@ class Adapter:
         try:
             validate_email(email)
         except ValidationError:
+            self.logger.warning(f"Email is not valid: {email}")
             raise AuthenticationException(
                 error_code=AUTHENTICATION_ERROR_CODES["INVALID_EMAIL"],
                 error_message="INVALID_EMAIL",
@@ -79,9 +91,10 @@ class Adapter:
         """Validate password strength"""
         results = zxcvbn(self.code)
         if results["score"] < 3:
+            self.logger.warning("Password is not strong enough")
             raise AuthenticationException(
-                error_code=AUTHENTICATION_ERROR_CODES["INVALID_PASSWORD"],
-                error_message="INVALID_PASSWORD",
+                error_code=AUTHENTICATION_ERROR_CODES["PASSWORD_TOO_WEAK"],
+                error_message="PASSWORD_TOO_WEAK",
                 payload={"email": email},
             )
         return
@@ -96,6 +109,7 @@ class Adapter:
 
         # Check if sign up is disabled and invite is present or not
         if ENABLE_SIGNUP == "0" and not WorkspaceMemberInvite.objects.filter(email=email).exists():
+            self.logger.warning("Sign up is disabled and invite is not present")
             # Raise exception
             raise AuthenticationException(
                 error_code=AUTHENTICATION_ERROR_CODES["SIGNUP_DISABLED"],
@@ -107,6 +121,20 @@ class Adapter:
 
     def get_avatar_download_headers(self):
         return {}
+
+    def check_sync_enabled(self):
+        """Check if sync is enabled for the provider"""
+        provider_config_map = {
+            "google": "ENABLE_GOOGLE_SYNC",
+            "github": "ENABLE_GITHUB_SYNC",
+            "gitlab": "ENABLE_GITLAB_SYNC",
+            "gitea": "ENABLE_GITEA_SYNC",
+        }
+        config_key = provider_config_map.get(self.provider)
+        if config_key:
+            (enabled,) = get_configuration_value([{"key": config_key, "default": os.environ.get(config_key, "0")}])
+            return enabled == "1"
+        return False
 
     def download_and_upload_avatar(self, avatar_url, user):
         """
@@ -155,9 +183,6 @@ class Adapter:
 
             # Generate unique filename
             filename = f"{uuid.uuid4().hex}-user-avatar.{extension}"
-
-            # Upload to S3/MinIO storage
-            from plane.settings.storage import S3Storage
 
             storage = S3Storage(request=self.request)
 
@@ -208,6 +233,59 @@ class Adapter:
         user.save()
         return user
 
+    def delete_old_avatar(self, user):
+        """Delete the old avatar if it exists"""
+        try:
+            if user.avatar_asset:
+                asset = FileAsset.objects.get(pk=user.avatar_asset_id)
+                storage = S3Storage(request=self.request)
+                storage.delete_files(object_names=[asset.asset.name])
+
+                # Delete the user avatar
+                asset.delete()
+                user.avatar_asset = None
+                user.avatar = ""
+                user.save()
+            return
+        except FileAsset.DoesNotExist:
+            pass
+        except Exception as e:
+            log_exception(e)
+            return
+
+    def sync_user_data(self, user):
+        # Update user details
+        first_name = self.user_data.get("user", {}).get("first_name", "")
+        last_name = self.user_data.get("user", {}).get("last_name", "")
+        user.first_name = first_name if first_name else ""
+        user.last_name = last_name if last_name else ""
+
+        # Get email
+        email = self.user_data.get("email")
+
+        # Get display name
+        display_name = self.user_data.get("user", {}).get("display_name")
+        # If display name is not provided, generate a random display name
+        if not display_name:
+            display_name = User.get_display_name(email)
+
+        # Set display name
+        user.display_name = display_name
+
+        # Download and upload avatar only if the avatar is different from the one in the storage
+        avatar = self.user_data.get("user", {}).get("avatar", "")
+        # Delete the old avatar if it exists
+        self.delete_old_avatar(user=user)
+        avatar_asset = self.download_and_upload_avatar(avatar_url=avatar, user=user)
+        if avatar_asset:
+            user.avatar_asset = avatar_asset
+        # If avatar upload fails, set the avatar to the original URL
+        else:
+            user.avatar = avatar
+
+        user.save()
+        return user
+
     def complete_login_or_signup(self):
         # Get email
         email = self.user_data.get("email")
@@ -255,12 +333,17 @@ class Adapter:
                 avatar_asset = self.download_and_upload_avatar(avatar_url=avatar, user=user)
                 if avatar_asset:
                     user.avatar_asset = avatar_asset
+                    user.avatar = avatar
                 # If avatar upload fails, set the avatar to the original URL
                 else:
                     user.avatar = avatar
 
             # Create profile
             Profile.objects.create(user=user)
+
+        # Check if IDP sync is enabled and user is not signing up
+        if self.check_sync_enabled() and not is_signup:
+            user = self.sync_user_data(user=user)
 
         # Save user data
         user = self.save_user_data(user=user)

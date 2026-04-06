@@ -1,4 +1,10 @@
-import type { CSSProperties, FC } from "react";
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
+import type { CSSProperties } from "react";
 import { extractInstruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item";
 import { clone, isNil, pull, uniq, concat } from "lodash-es";
 import scrollIntoView from "smooth-scroll-into-view-if-needed";
@@ -135,7 +141,7 @@ const getProjectColumns = (): IGroupByColumn[] | undefined => {
         id: project.id,
         name: project.name,
         icon: (
-          <div className="w-6 h-6 grid place-items-center flex-shrink-0">
+          <div className="grid h-6 w-6 flex-shrink-0 place-items-center">
             <Logo logo={project.logo_props} />
           </div>
         ),
@@ -589,7 +595,7 @@ export const removeNillKeys = <T,>(obj: T) =>
   Object.fromEntries(Object.entries(obj ?? {}).filter(([key, value]) => key && !isNil(value)));
 
 /**
- * This Method returns if the the grouped values are subGrouped
+ * This Method returns if the grouped values are subGrouped
  * @param groupedIssueIds
  * @returns
  */
@@ -748,3 +754,18 @@ export const isFiltersApplied = (filters: IIssueFilterOptions): boolean =>
     if (Array.isArray(value)) return value.length > 0;
     return value !== undefined && value !== null && value !== "";
   });
+
+/**
+ * Calculates the minimum width needed for issue identifiers in list layouts
+ * @param projectIdentifierLength - Length of the project identifier (e.g., "PROJ" = 4)
+ * @param maxSequenceId - Maximum sequence ID in the project (e.g., 1234)
+ * @returns Width in pixels needed to display the identifier
+ *
+ * @example
+ * // For "PROJ-1234"
+ * calculateIdentifierWidth(4, 1234) // Returns width for "PROJ" + "-" + "1234"
+ */
+export const calculateIdentifierWidth = (projectIdentifierLength: number, maxSequenceId: number): number => {
+  const sequenceDigits = Math.max(1, Math.floor(Math.log10(maxSequenceId)) + 1);
+  return projectIdentifierLength * 7 + 7 + sequenceDigits * 7; // project identifier chars + dash + sequence digits
+};

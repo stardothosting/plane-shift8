@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2023-present Plane Software, Inc. and contributors
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * See the LICENSE file for details.
+ */
+
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { observer } from "mobx-react";
 // plane imports
@@ -39,7 +45,6 @@ import type { TPageInstance } from "@/store/pages/base-page";
 import { PageContentLoader } from "../loaders/page-content-loader";
 import { PageEditorHeaderRoot } from "./header";
 import { PageContentBrowser } from "./summary";
-import { PageEditorTitle } from "./title";
 
 export type TEditorBodyConfig = {
   fileHandler: TFileHandler;
@@ -218,7 +223,7 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
   );
 
   const blockWidthClassName = cn(
-    "block bg-transparent w-full max-w-[720px] mx-auto transition-all duration-200 ease-in-out",
+    "mx-auto block w-full max-w-[720px] bg-transparent transition-all duration-200 ease-in-out",
     {
       "max-w-[1152px]": isFullWidth,
     }
@@ -230,67 +235,69 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
 
   return (
     <Row
-      className="relative size-full flex flex-col overflow-y-auto overflow-x-hidden vertical-scrollbar scrollbar-md duration-200"
+      className="vertical-scrollbar relative flex scrollbar-md size-full flex-col overflow-x-hidden overflow-y-auto duration-200"
       variant={ERowVariant.HUGGING}
     >
       <div id="page-content-container" className="relative w-full flex-shrink-0">
         {/* table of content */}
         {!isNavigationPaneOpen && (
-          <div className="page-summary-container absolute h-full right-0 top-[64px] z-[5]">
+          <div className="page-summary-container absolute top-[64px] right-0 z-[5] h-full">
             <div className="sticky top-[72px]">
               <div className="group/page-toc relative px-page-x">
                 <div
-                  className="!cursor-pointer max-h-[50vh] overflow-hidden"
+                  className="max-h-[50vh] !cursor-pointer overflow-hidden"
                   role="button"
                   aria-label={t("page_navigation_pane.outline_floating_button")}
                   onClick={handleOpenNavigationPane}
                 >
                   <PageContentBrowser className="overflow-y-auto" editorRef={editorRef} showOutline />
                 </div>
-                <div className="absolute top-0 right-0 opacity-0 translate-x-1/2 pointer-events-none group-hover/page-toc:opacity-100 group-hover/page-toc:-translate-x-1/4 group-hover/page-toc:pointer-events-auto transition-all duration-300 w-52 max-h-[70vh] overflow-y-scroll vertical-scrollbar scrollbar-sm whitespace-nowrap bg-custom-background-90 p-4 rounded">
+                <div className="vertical-scrollbar pointer-events-none absolute top-0 right-0 scrollbar-sm max-h-[70vh] w-52 translate-x-1/2 overflow-y-scroll rounded-sm bg-surface-2 p-4 whitespace-nowrap opacity-0 transition-all duration-300 group-hover/page-toc:pointer-events-auto group-hover/page-toc:-translate-x-1/4 group-hover/page-toc:opacity-100">
                   <PageContentBrowser className="overflow-y-auto" editorRef={editorRef} />
                 </div>
               </div>
             </div>
           </div>
         )}
-        <div className="page-header-container group/page-header">
-          <div className={blockWidthClassName}>
-            <PageEditorHeaderRoot page={page} projectId={projectId} />
+        <div>
+          <div className="page-header-container group/page-header">
+            <div className={blockWidthClassName}>
+              <PageEditorHeaderRoot page={page} projectId={projectId} />
+            </div>
           </div>
+          <CollaborativeDocumentEditorWithRef
+            editable={isContentEditable}
+            id={pageId}
+            fileHandler={config.fileHandler}
+            handleEditorReady={handleEditorReady}
+            ref={editorForwardRef}
+            titleRef={titleEditorRef}
+            containerClassName="h-full p-0 pb-64"
+            displayConfig={displayConfig}
+            getEditorMetaData={getEditorMetaData}
+            mentionHandler={{
+              searchCallback: async (query) => {
+                const res = await fetchMentions(query);
+                if (!res) throw new Error("Failed in fetching mentions");
+                return res;
+              },
+              renderComponent: (props) => <EditorMentionsRoot {...props} />,
+              getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
+            }}
+            updatePageProperties={updatePageProperties}
+            realtimeConfig={realtimeConfig}
+            serverHandler={serverHandler}
+            user={userConfig}
+            disabledExtensions={documentEditorExtensions.disabled}
+            flaggedExtensions={documentEditorExtensions.flagged}
+            aiHandler={{
+              menu: getAIMenu,
+            }}
+            onAssetChange={updateAssetsList}
+            extendedEditorProps={extendedEditorProps}
+            isFetchingFallbackBinary={isFetchingFallbackBinary}
+          />
         </div>
-        <CollaborativeDocumentEditorWithRef
-          editable={isContentEditable}
-          id={pageId}
-          fileHandler={config.fileHandler}
-          handleEditorReady={handleEditorReady}
-          ref={editorForwardRef}
-          titleRef={titleEditorRef}
-          containerClassName="h-full p-0 pb-64"
-          displayConfig={displayConfig}
-          getEditorMetaData={getEditorMetaData}
-          mentionHandler={{
-            searchCallback: async (query) => {
-              const res = await fetchMentions(query);
-              if (!res) throw new Error("Failed in fetching mentions");
-              return res;
-            },
-            renderComponent: (props) => <EditorMentionsRoot {...props} />,
-            getMentionedEntityDetails: (id: string) => ({ display_name: getUserDetails(id)?.display_name ?? "" }),
-          }}
-          updatePageProperties={updatePageProperties}
-          realtimeConfig={realtimeConfig}
-          serverHandler={serverHandler}
-          user={userConfig}
-          disabledExtensions={documentEditorExtensions.disabled}
-          flaggedExtensions={documentEditorExtensions.flagged}
-          aiHandler={{
-            menu: getAIMenu,
-          }}
-          onAssetChange={updateAssetsList}
-          extendedEditorProps={extendedEditorProps}
-          isFetchingFallbackBinary={isFetchingFallbackBinary}
-        />
       </div>
     </Row>
   );
