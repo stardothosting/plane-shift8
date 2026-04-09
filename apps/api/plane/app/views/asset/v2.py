@@ -758,7 +758,8 @@ class DuplicateAssetEndpoint(BaseAPIView):
         if not original_asset:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        destination_key = f"{workspace.id}/{uuid.uuid4().hex}-{sanitize_filename(original_asset.attributes.get('name')) or 'unnamed'}"
+        sanitized_name = sanitize_filename(original_asset.attributes.get("name")) or "unnamed"
+        destination_key = f"{workspace.id}/{uuid.uuid4().hex}-{sanitized_name}"
         duplicated_asset = FileAsset.objects.create(
             attributes={
                 "name": original_asset.attributes.get("name"),
