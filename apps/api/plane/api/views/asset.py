@@ -115,7 +115,7 @@ class UserAssetEndpoint(BaseAPIView):
         This endpoint generates the necessary credentials for direct S3 upload.
         """
         # get the asset key
-        name = sanitize_filename(request.data.get("name"))
+        name = sanitize_filename(request.data.get("name")) or "unnamed"
         type = request.data.get("type", "image/jpeg")
         size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
         entity_type = request.data.get("entity_type", False)
@@ -288,7 +288,7 @@ class UserServerAssetEndpoint(BaseAPIView):
         necessary credentials for direct S3 upload with server-side authentication.
         """
         # get the asset key
-        name = sanitize_filename(request.data.get("name"))
+        name = sanitize_filename(request.data.get("name")) or "unnamed"
         type = request.data.get("type", "image/jpeg")
         size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
         entity_type = request.data.get("entity_type", False)
