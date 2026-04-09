@@ -22,6 +22,7 @@ from plane.db.models import FileAsset, Workspace, Project, User
 from plane.settings.storage import S3Storage
 from plane.app.permissions import allow_permission, ROLE
 from plane.utils.cache import invalidate_cache_directly
+from plane.utils.path_validator import sanitize_filename
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from plane.throttles.asset import AssetRateThrottle
 
@@ -108,7 +109,7 @@ class UserAssetsV2Endpoint(BaseAPIView):
 
     def post(self, request):
         # get the asset key
-        name = request.data.get("name")
+        name = sanitize_filename(request.data.get("name"))
         type = request.data.get("type", "image/jpeg")
         size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
         entity_type = request.data.get("entity_type", False)
@@ -312,7 +313,7 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
             return
 
     def post(self, request, slug):
-        name = request.data.get("name")
+        name = sanitize_filename(request.data.get("name"))
         type = request.data.get("type", "image/jpeg")
         size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
         entity_type = request.data.get("entity_type")
@@ -511,7 +512,7 @@ class ProjectAssetEndpoint(BaseAPIView):
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def post(self, request, slug, project_id):
-        name = request.data.get("name")
+        name = sanitize_filename(request.data.get("name"))
         type = request.data.get("type", "image/jpeg")
         size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
         entity_type = request.data.get("entity_type", "")
@@ -757,7 +758,7 @@ class DuplicateAssetEndpoint(BaseAPIView):
         if not original_asset:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        destination_key = f"{workspace.id}/{uuid.uuid4().hex}-{original_asset.attributes.get('name')}"
+        destination_key = f"{workspace.id}/{uuid.uuid4().hex}-{sanitize_filename(original_asset.attributes.get('name'))}"
         duplicated_asset = FileAsset.objects.create(
             attributes={
                 "name": original_asset.attributes.get("name"),

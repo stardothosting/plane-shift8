@@ -7,7 +7,40 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.conf import settings
 
 # Python imports
+import os
+import re
 from urllib.parse import urlparse
+
+
+def sanitize_filename(filename):
+    """
+    Sanitize a filename to prevent path traversal attacks.
+
+    Strips directory components, path traversal sequences, and null bytes
+    from user-supplied filenames used in upload paths and S3 object keys.
+    """
+    if not filename or not isinstance(filename, str):
+        return "unnamed"
+
+    # Strip null bytes
+    filename = filename.replace("\x00", "")
+
+    # Take only the basename to remove any directory components
+    filename = os.path.basename(filename)
+
+    # Remove any remaining path traversal sequences
+    filename = filename.replace("..", "")
+
+    # Remove leading dots (hidden files)
+    filename = filename.lstrip(".")
+
+    # Strip whitespace
+    filename = filename.strip()
+
+    if not filename:
+        return "unnamed"
+
+    return filename
 
 
 def _contains_suspicious_patterns(path: str) -> bool:
