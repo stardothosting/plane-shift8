@@ -377,7 +377,7 @@ class IssueLink(ProjectBaseModel):
 
 
 def get_upload_path(instance, filename):
-    filename = sanitize_filename(filename) or "unnamed"
+    filename = sanitize_filename(filename) or uuid4().hex
     return f"{instance.workspace.id}/{uuid4().hex}-{filename}"
 
 
