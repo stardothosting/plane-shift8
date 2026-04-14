@@ -137,8 +137,5 @@ export type TPowerKSearchResultsKeys =
   | "workspace"
   | "project"
   | "issue"
-  | "cycle"
-  | "module"
   | "issue_view"
-  | "page"
   | TPowerKSearchResultsKeysExtended;

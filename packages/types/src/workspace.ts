@@ -157,10 +157,7 @@ export interface IWorkspaceSearchResults {
     workspace: IWorkspaceSearchResult[];
     project: IWorkspaceProjectSearchResult[];
     issue: IWorkspaceIssueSearchResult[];
-    cycle: IWorkspaceDefaultSearchResult[];
-    module: IWorkspaceDefaultSearchResult[];
     issue_view: IWorkspaceDefaultSearchResult[];
-    page: IWorkspacePageSearchResult[];
   };
 }
 
