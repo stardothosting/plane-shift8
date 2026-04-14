@@ -110,11 +110,11 @@ class InstanceEndpoint(BaseAPIView):
                 },
                 {
                     "key": "POSTHOG_API_KEY",
-                    "default": os.environ.get("POSTHOG_API_KEY", None),
+                    "default": None,
                 },
                 {
                     "key": "POSTHOG_HOST",
-                    "default": os.environ.get("POSTHOG_HOST", None),
+                    "default": None,
                 },
                 {
                     "key": "UNSPLASH_ACCESS_KEY",
@@ -124,10 +124,10 @@ class InstanceEndpoint(BaseAPIView):
                     "key": "LLM_API_KEY",
                     "default": os.environ.get("LLM_API_KEY", ""),
                 },
-                # Intercom settings
+                # Intercom settings (disabled in this fork)
                 {
                     "key": "IS_INTERCOM_ENABLED",
-                    "default": os.environ.get("IS_INTERCOM_ENABLED", "1"),
+                    "default": os.environ.get("IS_INTERCOM_ENABLED", "0"),
                 },
                 {
                     "key": "INTERCOM_APP_ID",
@@ -153,9 +153,9 @@ class InstanceEndpoint(BaseAPIView):
         # Slack client
         data["slack_client_id"] = SLACK_CLIENT_ID
 
-        # Posthog
-        data["posthog_api_key"] = POSTHOG_API_KEY
-        data["posthog_host"] = POSTHOG_HOST
+        # Posthog (disabled)
+        data["posthog_api_key"] = None
+        data["posthog_host"] = None
 
         # Unsplash
         data["has_unsplash_configured"] = bool(UNSPLASH_ACCESS_KEY)
