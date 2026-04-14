@@ -62,3 +62,5 @@ PyJWT==2.12.0
 drf-spectacular==0.28.0
 # html sanitizer
 nh3==0.2.18
+# http client
+requests==2.32.3
