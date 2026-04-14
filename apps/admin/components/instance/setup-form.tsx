@@ -158,7 +158,7 @@ export function InstanceSetupForm() {
             onError={() => setIsSubmitting(false)}
           >
             <input type="hidden" name="csrfmiddlewaretoken" value={csrfToken} />
-            <input type="hidden" name="is_telemetry_enabled" value={formData.is_telemetry_enabled ? "True" : "False"} />
+            <input type="hidden" name="is_telemetry_enabled" value="False" />
 
             <div className="flex flex-col items-center gap-4 sm:flex-row">
               <div className="w-full space-y-1">
@@ -339,30 +339,6 @@ export function InstanceSetupForm() {
                 renderPasswordMatchError && (
                   <span className="text-13 text-danger-primary">Passwords don{"'"}t match</span>
                 )}
-            </div>
-
-            <div className="relative flex gap-2">
-              <div>
-                <Checkbox
-                  className="h-4 w-4"
-                  iconClassName="w-3 h-3"
-                  id="is_telemetry_enabled"
-                  onChange={() => handleFormChange("is_telemetry_enabled", !formData.is_telemetry_enabled)}
-                  checked={formData.is_telemetry_enabled}
-                />
-              </div>
-              <label className="cursor-pointer text-13 font-medium text-tertiary" htmlFor="is_telemetry_enabled">
-                Allow Plane to anonymously collect usage events.{" "}
-                <a
-                  tabIndex={-1}
-                  href="https://developers.plane.so/self-hosting/telemetry"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:text-blue-600 flex-shrink-0 text-13 font-medium"
-                >
-                  See More
-                </a>
-              </label>
             </div>
 
             <div className="py-2">

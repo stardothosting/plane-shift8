@@ -297,13 +297,9 @@ UNSPLASH_ACCESS_KEY = os.environ.get("UNSPLASH_ACCESS_KEY")
 # Github Access Token
 GITHUB_ACCESS_TOKEN = os.environ.get("GITHUB_ACCESS_TOKEN", False)
 
-# Analytics
-ANALYTICS_SECRET_KEY = os.environ.get("ANALYTICS_SECRET_KEY", False)
-ANALYTICS_BASE_API = os.environ.get("ANALYTICS_BASE_API", False)
-
-# Posthog settings
-POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", False)
-POSTHOG_HOST = os.environ.get("POSTHOG_HOST", False)
+# Posthog settings (disabled in this fork)
+POSTHOG_API_KEY = False
+POSTHOG_HOST = False
 
 # Skip environment variable configuration
 SKIP_ENV_VAR = os.environ.get("SKIP_ENV_VAR", "1") == "1"

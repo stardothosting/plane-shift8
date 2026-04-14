@@ -40,16 +40,12 @@ channels==4.1.0
 openai==1.63.2
 # slack
 slack-sdk==3.27.1
-# apm
-scout-apm==3.1.0
 # xlsx generation
 openpyxl==3.1.2
 # logging
 python-json-logger==4.0.0
 # html parser
 beautifulsoup4==4.12.3
-# analytics
-posthog==3.5.0
 # crypto
 cryptography==46.0.6
 # html validator
@@ -62,11 +58,6 @@ zxcvbn==4.4.28
 pytz==2024.1
 # jwt
 PyJWT==2.12.0
-# OpenTelemetry
-opentelemetry-api==1.28.1
-opentelemetry-sdk==1.28.1
-opentelemetry-instrumentation-django==0.49b1
-opentelemetry-exporter-otlp==1.28.1
 # OpenAPI Specification
 drf-spectacular==0.28.0
 # html sanitizer
