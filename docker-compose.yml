@@ -44,7 +44,7 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-api.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - plane-db
       - plane-redis
@@ -59,7 +59,7 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-worker.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - api
       - plane-db
@@ -75,7 +75,7 @@ services:
     restart: always
     command: ./bin/docker-entrypoint-beat.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - api
       - plane-db
@@ -91,7 +91,7 @@ services:
     restart: no
     command: ./bin/docker-entrypoint-migrator.sh
     env_file:
-      - ./apps/api/.env
+      - .env
     depends_on:
       - plane-db
       - plane-redis
@@ -105,7 +105,7 @@ services:
         DOCKER_BUILDKIT: 1
     restart: always
     env_file:
-      - ./apps/live/.env
+      - .env
     depends_on:
       - api
       - plane-redis
