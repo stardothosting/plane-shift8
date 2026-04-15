@@ -41,26 +41,13 @@ copy_env_file() {
 # Export character encoding settings for macOS compatibility
 export LC_ALL=C
 export LC_CTYPE=C
-echo -e "${YELLOW}Setting up environment files...${NC}"
+echo -e "${YELLOW}Setting up environment file...${NC}"
 
-# Copy all environment example files
-services=("" "web" "api" "space" "admin" "live")
-success=true
-
-for service in "${services[@]}"; do
-    if [ "$service" == "" ]; then
-        # Handle root .env file
-        prefix="./"
-    else
-        # Handle service .env files in apps folder
-        prefix="./apps/$service/"
-    fi
-
-    copy_env_file "${prefix}.env.example" "${prefix}.env" || success=false
-done
+# Single .env file for all services
+copy_env_file "./.env.example" "./.env" || success=false
 
 # Generate SECRET_KEY for Django
-if [ -f "./apps/api/.env" ]; then
+if [ -f "./.env" ]; then
     echo -e "\n${YELLOW}Generating Django SECRET_KEY...${NC}"
     SECRET_KEY=$(tr -dc 'a-z0-9' < /dev/urandom | head -c50)
 
@@ -69,11 +56,11 @@ if [ -f "./apps/api/.env" ]; then
         echo -e "${RED}Ensure 'tr' and 'head' commands are available on your system.${NC}"
         success=false
     else
-        echo -e "SECRET_KEY=\"$SECRET_KEY\"" >> ./apps/api/.env
-        echo -e "${GREEN}✓${NC} Added SECRET_KEY to apps/api/.env"
+        echo -e "SECRET_KEY=\"$SECRET_KEY\"" >> ./.env
+        echo -e "${GREEN}✓${NC} Added SECRET_KEY to .env"
     fi
 else
-    echo -e "${RED}✗${NC} apps/api/.env not found. SECRET_KEY not added."
+    echo -e "${RED}✗${NC} .env not found. SECRET_KEY not added."
     success=false
 fi
 
@@ -87,8 +74,8 @@ echo -e "\n${YELLOW}Setup status:${NC}"
 if [ "$success" = true ]; then
     echo -e "${GREEN}✓${NC} Environment setup completed successfully!\n"
     echo -e "${BOLD}Next steps:${NC}"
-    echo -e "1. Review the .env files in each folder if needed"
-    echo -e "2. Start the services with: ${BOLD}docker compose -f docker-compose-local.yml up -d${NC}"
+    echo -e "1. Review .env and set your domain, S3 credentials, etc."
+    echo -e "2. Start the services with: ${BOLD}docker compose up -d${NC}"
     echo -e "\n${GREEN}Happy coding! 🚀${NC}"
 else
     echo -e "${RED}✗${NC} Some issues occurred during setup. Please check the errors above.\n"
