@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import entity_mapper as mapper
+from .checkpoint import ImportCheckpointStore
 from .linear_client import LinearClient
 
 logger = logging.getLogger(__name__)
@@ -81,12 +82,14 @@ class LinearImporter:
         *,
         team_ids: list[str] | None = None,
         dry_run: bool = False,
+        checkpoint_store: ImportCheckpointStore | None = None,
     ):
         self.client = client
         self.workspace_id = workspace_id
         self.owner_id = owner_id
         self.team_ids = team_ids
         self.dry_run = dry_run
+        self.checkpoint_store = checkpoint_store
         self.stats = ImportStats()
 
         # Lookup maps: Linear ID → Plane PK
@@ -111,7 +114,13 @@ class LinearImporter:
             teams = [t for t in teams if t["id"] in self.team_ids]
 
         for team in teams:
+            if self.checkpoint_store and self.checkpoint_store.is_team_done(team["id"]):
+                logger.info("Skipping completed team %s (%s)", team.get("name"), team["id"])
+                self.stats.skipped += 1
+                continue
             self._import_team(team)
+            if self.checkpoint_store and not self.dry_run:
+                self.checkpoint_store.mark_team_done(team["id"])
 
         logger.info("Import finished.\n%s", self.stats.summary())
         return self.stats
@@ -375,8 +384,21 @@ class LinearImporter:
             self.stats.issues += len(linear_issues)
             return
 
+        # Seed issue map from existing imported issues so relation mapping can
+        # resolve references even when resume mode skips issue reprocessing.
+        for ext_id, pk in Issue.objects.filter(
+            workspace_id=self.workspace_id,
+            project=project,
+            external_source=mapper.EXTERNAL_SOURCE,
+        ).values_list("external_id", "pk"):
+            self._issue_map[str(ext_id)] = pk
+
         # --- Pass 1: create issues without parent links ---
         for li in linear_issues:
+            if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
+                self.stats.skipped += 1
+                continue
+
             mapped = mapper.map_issue(
                 li,
                 state_map=state_map,
@@ -462,6 +484,8 @@ class LinearImporter:
 
         # --- Pass 2: wire parent links ---
         for li in linear_issues:
+            if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
+                continue
             parent_ref = li.get("parent")
             if not parent_ref:
                 continue
@@ -479,12 +503,16 @@ class LinearImporter:
 
         # --- Comments, Attachments, Relations (per issue) ---
         for li in linear_issues:
+            if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
+                continue
             plane_issue_pk = self._issue_map.get(li["id"])
             if not plane_issue_pk:
                 continue
             self._import_comments(li["id"], plane_issue_pk, project)
             self._import_attachments(li["id"], plane_issue_pk, project)
             self._import_relations(li["id"], plane_issue_pk, project)
+            if self.checkpoint_store and not self.dry_run:
+                self.checkpoint_store.mark_issue_done(li["id"])
 
     # ------------------------------------------------------------------
     # Comments
