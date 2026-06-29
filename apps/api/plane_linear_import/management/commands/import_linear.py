@@ -27,8 +27,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--workspace-slug",
-            required=True,
-            help="Slug of the target Plane workspace.",
+            default="",
+            help="Slug of the target Plane workspace (auto-detected if only one exists).",
         )
         parser.add_argument(
             "--team-ids",
@@ -60,10 +60,24 @@ class Command(BaseCommand):
             )
 
         slug = options["workspace_slug"]
-        try:
-            workspace = Workspace.objects.get(slug=slug)
-        except Workspace.DoesNotExist:
-            raise CommandError(f"Workspace with slug '{slug}' not found.")
+        if slug:
+            try:
+                workspace = Workspace.objects.get(slug=slug)
+            except Workspace.DoesNotExist:
+                raise CommandError(f"Workspace with slug '{slug}' not found.")
+        else:
+            workspaces = list(Workspace.objects.all()[:2])
+            if len(workspaces) == 0:
+                raise CommandError("No workspaces exist. Create one first.")
+            if len(workspaces) > 1:
+                slugs = ", ".join(
+                    Workspace.objects.values_list("slug", flat=True)
+                )
+                raise CommandError(
+                    f"Multiple workspaces found. Specify --workspace-slug. Available: {slugs}"
+                )
+            workspace = workspaces[0]
+            self.stdout.write(f"Auto-detected workspace: {workspace.name} ({workspace.slug})")
 
         team_ids = [
             t.strip() for t in options["team_ids"].split(",") if t.strip()
