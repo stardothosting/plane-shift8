@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "plane.license",
     "plane.api",
     "plane.authentication",
+    # Linear import addon
+    "plane_linear_import",
     # Third-party things
     "rest_framework",
     "corsheaders",

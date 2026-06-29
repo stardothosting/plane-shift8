@@ -64,3 +64,4 @@ drf-spectacular==0.28.0
 nh3==0.2.18
 # http client
 requests==2.32.3
+httpx==0.28.1
