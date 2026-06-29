@@ -208,7 +208,7 @@ class LinearClient:
 
     def fetch_issues_for_team(self, team_id: str) -> list[dict[str, Any]]:
         query = """
-        query($first: Int!, $after: String, $teamId: String!) {
+        query($first: Int!, $after: String, $teamId: ID!) {
           issues(
             first: $first,
             after: $after,
@@ -265,26 +265,24 @@ class LinearClient:
 
     def fetch_attachments_for_issue(self, issue_id: str) -> list[dict[str, Any]]:
         query = """
-        query($first: Int!, $after: String, $issueId: ID!) {
-          attachments(
-            first: $first,
-            after: $after,
-            filter: { issue: { id: { eq: $issueId } } }
-          ) {
-            nodes {
-              id
-              title
-              subtitle
-              url
-              metadata
-              source { type }
-              createdAt
+        query($issueId: String!) {
+          issue(id: $issueId) {
+            attachments {
+              nodes {
+                id
+                title
+                subtitle
+                url
+                metadata
+                source
+                createdAt
+              }
             }
-            pageInfo { hasNextPage endCursor }
           }
         }
         """
-        return self.paginate(query, "attachments", {"issueId": issue_id})
+        data = self.execute(query, {"issueId": issue_id})
+        return (data.get("issue") or {}).get("attachments", {}).get("nodes", [])
 
     def fetch_relations_for_issue(self, issue_id: str) -> list[dict[str, Any]]:
         query = """
