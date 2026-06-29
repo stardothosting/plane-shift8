@@ -28,7 +28,6 @@ class ImportStats:
     comments: int = 0
     attachments: int = 0
     relations: int = 0
-    reactions: int = 0
     estimates: int = 0
     skipped: int = 0
     errors: list[str] = field(default_factory=list)
@@ -43,7 +42,6 @@ class ImportStats:
             f"Comments       : {self.comments}",
             f"Attachments    : {self.attachments}",
             f"Relations      : {self.relations}",
-            f"Reactions      : {self.reactions}",
             f"Estimates      : {self.estimates}",
             f"Skipped (dupes): {self.skipped}",
             f"Errors         : {len(self.errors)}",
@@ -97,10 +95,6 @@ class LinearImporter:
         self._user_map: dict[str, Any] = {}
         self._issue_map: dict[str, Any] = {}  # linear issue id → plane issue pk
 
-        # Deferred data: collected during issue import, processed after.
-        # Each entry: (linear_issue_dict, project)
-        self._all_linear_issues: list[tuple[dict[str, Any], Any]] = []
-
     # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
@@ -118,10 +112,6 @@ class LinearImporter:
 
         for team in teams:
             self._import_team(team)
-
-        # Deferred passes (need all issues across all teams in _issue_map)
-        self._import_all_relations()
-        self._import_all_reactions()
 
         logger.info("Import finished.\n%s", self.stats.summary())
         return self.stats
@@ -156,7 +146,14 @@ class LinearImporter:
     # ------------------------------------------------------------------
 
     def _import_labels(self) -> None:
-        """Import workspace-level labels."""
+        """Import workspace-level labels.
+
+        Linear has per-team labels with duplicate names (e.g. "Bug" in every
+        team).  Plane enforces unique label names at the workspace level, so
+        we deduplicate: first try matching by ``external_id`` (re-run safe),
+        then fall back to matching by name.
+        """
+        from django.db import IntegrityError
         from plane.db.models import Label  # noqa: delayed import
 
         linear_labels = self.client.fetch_labels()
@@ -165,6 +162,11 @@ class LinearImporter:
             if self.dry_run:
                 self.stats.labels += 1
                 continue
+
+            # Already mapped in a prior iteration (duplicate name from another team)?
+            if ll["id"] in self._label_map:
+                continue
+
             try:
                 label, created = Label.objects.update_or_create(
                     workspace_id=self.workspace_id,
@@ -182,6 +184,20 @@ class LinearImporter:
                     self.stats.labels += 1
                 else:
                     self.stats.skipped += 1
+            except IntegrityError:
+                # A label with this name already exists — reuse it.
+                try:
+                    label = Label.objects.get(
+                        workspace_id=self.workspace_id,
+                        project=None,
+                        name=kwargs["name"],
+                    )
+                    self._label_map[ll["id"]] = label.pk
+                    self.stats.skipped += 1
+                except Label.DoesNotExist:
+                    msg = f"Label '{ll.get('name')}': name conflict but lookup failed"
+                    logger.error(msg)
+                    self.stats.errors.append(msg)
             except Exception as exc:
                 msg = f"Label '{ll.get('name')}': {exc}"
                 logger.error(msg)
@@ -439,9 +455,6 @@ class LinearImporter:
                         },
                     )
 
-                # Stash for deferred passes (relations, reactions, attachments)
-                self._all_linear_issues.append((li, project))
-
             except Exception as exc:
                 msg = f"Issue '{li.get('identifier', li['id'])}': {exc}"
                 logger.error(msg)
@@ -464,13 +477,14 @@ class LinearImporter:
                     logger.error(msg)
                     self.stats.errors.append(msg)
 
-        # --- Comments + Attachments (per issue) ---
+        # --- Comments, Attachments, Relations (per issue) ---
         for li in linear_issues:
             plane_issue_pk = self._issue_map.get(li["id"])
             if not plane_issue_pk:
                 continue
             self._import_comments(li["id"], plane_issue_pk, project)
             self._import_attachments(li["id"], plane_issue_pk, project)
+            self._import_relations(li["id"], plane_issue_pk, project)
 
     # ------------------------------------------------------------------
     # Comments
@@ -549,95 +563,49 @@ class LinearImporter:
                 self.stats.errors.append(msg)
 
     # ------------------------------------------------------------------
-    # Issue Relations (deferred — needs full _issue_map)
+    # Issue Relations (per issue)
     # ------------------------------------------------------------------
 
-    def _import_all_relations(self) -> None:
-        """Process relations from all issues after all teams have been imported."""
+    def _import_relations(
+        self,
+        linear_issue_id: str,
+        plane_issue_pk: Any,
+        project: Any,
+    ) -> None:
         from plane.db.models import IssueRelation  # noqa: delayed
 
-        if self.dry_run:
+        try:
+            relations = self.client.fetch_relations_for_issue(linear_issue_id)
+        except Exception as exc:
+            logger.debug("Could not fetch relations for %s: %s", linear_issue_id, exc)
             return
 
-        seen_pairs: set[tuple[Any, Any]] = set()
-
-        for li, project in self._all_linear_issues:
-            relations = (li.get("relations") or {}).get("nodes", [])
-            for rel in relations:
-                mapped = mapper.map_issue_relation(
-                    rel,
-                    issue_map=self._issue_map,
-                    current_linear_issue_id=li["id"],
-                )
-                if mapped is None:
-                    continue
-
-                # Deduplicate symmetric pairs (duplicate, relates_to)
-                pair = (mapped["issue_id"], mapped["related_issue_id"])
-                reverse_pair = (mapped["related_issue_id"], mapped["issue_id"])
-                if pair in seen_pairs or reverse_pair in seen_pairs:
-                    continue
-                seen_pairs.add(pair)
-
-                try:
-                    _, created = IssueRelation.objects.get_or_create(
-                        workspace_id=self.workspace_id,
-                        project=project,
-                        issue_id=mapped["issue_id"],
-                        related_issue_id=mapped["related_issue_id"],
-                        defaults={
-                            "relation_type": mapped["relation_type"],
-                            "created_by_id": self.owner_id,
-                            "updated_by_id": self.owner_id,
-                        },
-                    )
-                    if created:
-                        self.stats.relations += 1
-                    else:
-                        self.stats.skipped += 1
-                except Exception as exc:
-                    msg = f"Relation {rel.get('id', '?')}: {exc}"
-                    logger.error(msg)
-                    self.stats.errors.append(msg)
-
-    # ------------------------------------------------------------------
-    # Reactions (deferred — needs full _issue_map)
-    # ------------------------------------------------------------------
-
-    def _import_all_reactions(self) -> None:
-        """Import emoji reactions from all issues."""
-        from plane.db.models import IssueReaction  # noqa: delayed
-
-        if self.dry_run:
-            return
-
-        for li, project in self._all_linear_issues:
-            plane_issue_pk = self._issue_map.get(li["id"])
-            if not plane_issue_pk:
+        for rel in relations:
+            mapped = mapper.map_issue_relation(
+                rel,
+                issue_map=self._issue_map,
+                current_linear_issue_id=linear_issue_id,
+            )
+            if mapped is None:
                 continue
 
-            reactions = (li.get("reactions") or {}).get("nodes", [])
-            for rxn in reactions:
-                mapped = mapper.map_reaction(rxn, user_map=self._user_map)
-                if mapped is None:
-                    continue
-                try:
-                    _, created = IssueReaction.objects.get_or_create(
-                        workspace_id=self.workspace_id,
-                        project=project,
-                        issue_id=plane_issue_pk,
-                        actor_id=mapped["actor_id"],
-                        reaction=mapped["reaction"],
-                        defaults={
-                            "created_by_id": self.owner_id,
-                            "updated_by_id": self.owner_id,
-                        },
-                    )
-                    if created:
-                        self.stats.reactions += 1
-                    else:
-                        self.stats.skipped += 1
-                except Exception as exc:
-                    msg = f"Reaction on issue {li['id']}: {exc}"
-                    logger.error(msg)
-                    self.stats.errors.append(msg)
+            try:
+                _, created = IssueRelation.objects.get_or_create(
+                    workspace_id=self.workspace_id,
+                    project=project,
+                    issue_id=mapped["issue_id"],
+                    related_issue_id=mapped["related_issue_id"],
+                    defaults={
+                        "relation_type": mapped["relation_type"],
+                        "created_by_id": self.owner_id,
+                        "updated_by_id": self.owner_id,
+                    },
+                )
+                if created:
+                    self.stats.relations += 1
+                else:
+                    self.stats.skipped += 1
+            except Exception as exc:
+                msg = f"Relation {rel.get('id', '?')}: {exc}"
+                logger.error(msg)
+                self.stats.errors.append(msg)

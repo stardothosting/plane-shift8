@@ -79,7 +79,11 @@ class LinearClient:
                 )
                 time.sleep(RATE_LIMIT_SLEEP_SECONDS)
                 continue
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                raise LinearClientError(
+                    [{"message": f"HTTP {resp.status_code}: {resp.text[:500]}"}],
+                    query=query,
+                )
             body = resp.json()
             if "errors" in body:
                 raise LinearClientError(body["errors"], query=query)
@@ -231,20 +235,6 @@ class LinearClient:
               dueDate
               estimate
               url
-              relations {
-                nodes {
-                  id
-                  type
-                  relatedIssue { id }
-                }
-              }
-              reactions {
-                nodes {
-                  id
-                  emoji
-                  user { id email }
-                }
-              }
             }
             pageInfo { hasNextPage endCursor }
           }
@@ -295,3 +285,20 @@ class LinearClient:
         }
         """
         return self.paginate(query, "attachments", {"issueId": issue_id})
+
+    def fetch_relations_for_issue(self, issue_id: str) -> list[dict[str, Any]]:
+        query = """
+        query($issueId: String!) {
+          issue(id: $issueId) {
+            relations {
+              nodes {
+                id
+                type
+                relatedIssue { id }
+              }
+            }
+          }
+        }
+        """
+        data = self.execute(query, {"issueId": issue_id})
+        return (data.get("issue") or {}).get("relations", {}).get("nodes", [])
