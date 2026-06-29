@@ -42,6 +42,7 @@ RUN apk add --no-cache --virtual .build-deps \
 # Add in Django deps and generate Django's static files
 COPY manage.py manage.py
 COPY plane plane/
+COPY plane_linear_import plane_linear_import/
 COPY templates templates/
 COPY package.json package.json
 
