@@ -10,7 +10,7 @@ No Django imports are needed here, keeping the module testable in isolation.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 # ------------------------------------------------------------------ #
@@ -152,7 +152,7 @@ def map_issue(
     desc_html = f"<p>{_escape_html(raw_desc)}</p>" if raw_desc else "<p></p>"
 
     kwargs: dict[str, Any] = {
-        "name": issue["title"],
+        "name": (issue.get("title") or "Untitled")[:255],
         "description_html": desc_html,
         "description_stripped": raw_desc,
         "priority": priority,
@@ -240,10 +240,15 @@ def map_attachment_to_link(
     """Return kwargs for creating a Plane IssueLink from a Linear Attachment."""
     title = attachment.get("title") or attachment.get("subtitle") or "Linear attachment"
     url = attachment.get("url") or ""
-    source_info = attachment.get("source") or {}
+    source_info = attachment.get("source")
+    source_type = None
+    if isinstance(source_info, dict):
+        source_type = source_info.get("type")
+    elif isinstance(source_info, str):
+        source_type = source_info
     metadata = {
         "linear_id": attachment["id"],
-        "source_type": source_info.get("type"),
+        "source_type": source_type,
     }
     return {
         "title": title[:255],

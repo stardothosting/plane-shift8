@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -17,7 +18,7 @@ LINEAR_API_URL = "https://api.linear.app/graphql"
 DEFAULT_PAGE_SIZE = 50
 # Linear allows 1 500 complexity points / minute.  We stay conservative.
 RATE_LIMIT_SLEEP_SECONDS = 10
-MAX_RETRIES = 3
+MAX_RETRIES = 20
 
 
 class LinearClientError(Exception):
@@ -58,6 +59,64 @@ class LinearClient:
     # Low-level
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _errors_from_response(resp: httpx.Response) -> list[dict[str, Any]]:
+      try:
+        body = resp.json()
+      except ValueError:
+        return []
+      errors = body.get("errors")
+      return errors if isinstance(errors, list) else []
+
+    @staticmethod
+    def _is_rate_limited(resp: httpx.Response, errors: list[dict[str, Any]]) -> bool:
+      if resp.status_code == 429:
+        return True
+      for err in errors:
+        ext = err.get("extensions") or {}
+        if ext.get("code") == "RATELIMITED" or ext.get("type") == "ratelimited":
+          return True
+        if ext.get("statusCode") == 429:
+          return True
+      return False
+
+    @staticmethod
+    def _retry_after_wait(resp: httpx.Response) -> int | None:
+      retry_after = resp.headers.get("Retry-After")
+      if retry_after and retry_after.isdigit():
+        return max(int(retry_after), RATE_LIMIT_SLEEP_SECONDS)
+      return None
+
+    @staticmethod
+    def _reset_at_wait(errors: list[dict[str, Any]]) -> int | None:
+      # Fall back to GraphQL extension metadata if available.
+      for err in errors:
+        ext = err.get("extensions") or {}
+        result = ((ext.get("meta") or {}).get("rateLimitResult") or {})
+        reset_at = result.get("resetAt")
+        if not isinstance(reset_at, str):
+          continue
+        try:
+          reset_dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00"))
+          remaining = int((reset_dt - datetime.now(timezone.utc)).total_seconds())
+          if remaining > 0:
+            return max(remaining + 1, RATE_LIMIT_SLEEP_SECONDS)
+        except ValueError:
+          continue
+      return None
+
+    @classmethod
+    def _rate_limit_sleep_seconds(cls, resp: httpx.Response, errors: list[dict[str, Any]]) -> int:
+      retry_after_wait = cls._retry_after_wait(resp)
+      if retry_after_wait is not None:
+        return retry_after_wait
+
+      reset_at_wait = cls._reset_at_wait(errors)
+      if reset_at_wait is not None:
+        return reset_at_wait
+
+      return RATE_LIMIT_SLEEP_SECONDS
+
     def execute(
         self,
         query: str,
@@ -69,25 +128,30 @@ class LinearClient:
             payload["variables"] = variables
 
         for attempt in range(1, MAX_RETRIES + 1):
-            resp = self._client.post("", json=payload)
-            if resp.status_code == 429:
-                logger.warning(
-                    "Rate-limited by Linear (attempt %d/%d), sleeping %ds",
-                    attempt,
-                    MAX_RETRIES,
-                    RATE_LIMIT_SLEEP_SECONDS,
-                )
-                time.sleep(RATE_LIMIT_SLEEP_SECONDS)
-                continue
-            if resp.status_code >= 400:
-                raise LinearClientError(
-                    [{"message": f"HTTP {resp.status_code}: {resp.text[:500]}"}],
-                    query=query,
-                )
-            body = resp.json()
-            if "errors" in body:
-                raise LinearClientError(body["errors"], query=query)
-            return body["data"]
+          resp = self._client.post("", json=payload)
+          errors = self._errors_from_response(resp)
+
+          if self._is_rate_limited(resp, errors):
+            sleep_for = self._rate_limit_sleep_seconds(resp, errors)
+            logger.warning(
+              "Rate-limited by Linear (attempt %d/%d), sleeping %ds",
+              attempt,
+              MAX_RETRIES,
+              sleep_for,
+            )
+            time.sleep(sleep_for)
+            continue
+
+          if resp.status_code >= 400:
+            raise LinearClientError(
+              [{"message": f"HTTP {resp.status_code}: {resp.text[:500]}"}],
+              query=query,
+            )
+
+          body = resp.json()
+          if "errors" in body:
+            raise LinearClientError(body["errors"], query=query)
+          return body["data"]
 
         raise LinearClientError(
             [{"message": "Rate limit exceeded after retries"}], query=query
