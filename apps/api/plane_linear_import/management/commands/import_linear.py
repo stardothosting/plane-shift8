@@ -46,10 +46,28 @@ class Command(BaseCommand):
             default="",
             help="Linear API key (falls back to LINEAR_API_KEY env var).",
         )
+        parser.add_argument(
+            "--resume",
+            action="store_true",
+            default=False,
+            help="Resume from checkpoint file and skip completed teams/issues.",
+        )
+        parser.add_argument(
+            "--checkpoint-file",
+            default=".linear-import-checkpoint.json",
+            help="Path to checkpoint JSON file used with --resume.",
+        )
+        parser.add_argument(
+            "--reset-checkpoint",
+            action="store_true",
+            default=False,
+            help="Reset checkpoint file before import (only with --resume).",
+        )
 
     def handle(self, **options):
         from plane.db.models import Workspace
 
+        from plane_linear_import.checkpoint import ImportCheckpointStore
         from plane_linear_import.importer import LinearImporter
         from plane_linear_import.linear_client import LinearClient
 
@@ -84,8 +102,27 @@ class Command(BaseCommand):
         ] or None
 
         dry_run = options["dry_run"]
+        resume = options["resume"]
+        checkpoint_file = options["checkpoint_file"]
+        reset_checkpoint = options["reset_checkpoint"]
+
+        if reset_checkpoint and not resume:
+            raise CommandError("--reset-checkpoint requires --resume.")
+
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY-RUN mode — no DB writes."))
+
+        checkpoint_store = ImportCheckpointStore(
+            checkpoint_file,
+            enabled=resume,
+            workspace_key=str(workspace.pk),
+            reset=reset_checkpoint,
+        )
+
+        if resume:
+            self.stdout.write(
+                f"Resume mode enabled (checkpoint: {checkpoint_file})"
+            )
 
         with LinearClient(api_key) as client:
             # Verify connectivity
@@ -104,6 +141,7 @@ class Command(BaseCommand):
                 owner_id=workspace.owner_id,
                 team_ids=team_ids,
                 dry_run=dry_run,
+                checkpoint_store=checkpoint_store,
             )
             stats = importer.run()
 
