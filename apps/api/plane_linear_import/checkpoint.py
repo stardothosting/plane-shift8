@@ -68,6 +68,7 @@ class ImportCheckpointStore:
         self._data["completed_teams"] = list(loaded.get("completed_teams") or [])
         self._data["completed_issues"] = list(loaded.get("completed_issues") or [])
         self._data["updated_at"] = loaded.get("updated_at") or self._now()
+        self._data["last_sync_at"] = loaded.get("last_sync_at") or ""
 
     def _load(self) -> None:
         if not self.path.exists():
@@ -123,4 +124,23 @@ class ImportCheckpointStore:
             return
         issues.add(linear_issue_id)
         self._data["completed_issues"] = sorted(issues)
+        self._persist()
+
+    def get_last_sync_at(self) -> datetime | None:
+        """Return the UTC datetime of the last completed sync, or None."""
+        value = self._data.get("last_sync_at") or ""
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+
+    def mark_sync_complete(self, sync_started_at: datetime) -> None:
+        """Record that a sync run completed, storing the time it started.
+
+        We store *start* time (not end time) so issues updated during the sync
+        window are picked up on the next run.
+        """
+        self._data["last_sync_at"] = sync_started_at.isoformat()
         self._persist()

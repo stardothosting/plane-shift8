@@ -270,7 +270,57 @@ class LinearClient:
         """
         return self.paginate(query, "issueLabels")
 
-    def fetch_issues_for_team(self, team_id: str) -> list[dict[str, Any]]:
+    def fetch_issues_for_team(
+        self, team_id: str, *, since: datetime | None = None
+    ) -> list[dict[str, Any]]:
+        """Fetch all issues for a team. Pass *since* for differential sync.
+
+        When *since* is given, only issues with ``updatedAt >= since`` are
+        returned, which cuts API request volume dramatically for incremental runs.
+        Linear bumps ``updatedAt`` on an issue whenever a comment or state change
+        is added, so changed sub-entities are not silently skipped.
+        """
+        if since is not None:
+            query = """
+            query($first: Int!, $after: String, $teamId: ID!, $since: DateTimeOrDuration!) {
+              issues(
+                first: $first,
+                after: $after,
+                filter: {
+                  team: { id: { eq: $teamId } },
+                  updatedAt: { gte: $since }
+                },
+                includeArchived: true
+              ) {
+                nodes {
+                  id
+                  identifier
+                  title
+                  description
+                  descriptionState
+                  priority
+                  priorityLabel
+                  state { id name }
+                  assignee { id email }
+                  labels { nodes { id } }
+                  parent { id }
+                  createdAt
+                  updatedAt
+                  startedAt
+                  completedAt
+                  canceledAt
+                  dueDate
+                  estimate
+                  url
+                }
+                pageInfo { hasNextPage endCursor }
+              }
+            }
+            """
+            return self.paginate(
+                query, "issues", {"teamId": team_id, "since": since.isoformat()}
+            )
+
         query = """
         query($first: Int!, $after: String, $teamId: ID!) {
           issues(
