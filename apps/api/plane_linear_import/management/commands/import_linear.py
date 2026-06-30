@@ -142,6 +142,7 @@ class Command(BaseCommand):
                 team_ids=team_ids,
                 dry_run=dry_run,
                 checkpoint_store=checkpoint_store,
+                progress_callback=self.stdout.write,
             )
             stats = importer.run()
 

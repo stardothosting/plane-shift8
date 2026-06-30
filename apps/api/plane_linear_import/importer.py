@@ -83,6 +83,7 @@ class LinearImporter:
         team_ids: list[str] | None = None,
         dry_run: bool = False,
         checkpoint_store: ImportCheckpointStore | None = None,
+        progress_callback: Any | None = None,
     ):
         self.client = client
         self.workspace_id = workspace_id
@@ -90,6 +91,7 @@ class LinearImporter:
         self.team_ids = team_ids
         self.dry_run = dry_run
         self.checkpoint_store = checkpoint_store
+        self.progress_callback = progress_callback
         self.stats = ImportStats()
 
         # Lookup maps: Linear ID → Plane PK
@@ -98,6 +100,12 @@ class LinearImporter:
         self._user_map: dict[str, Any] = {}
         self._issue_map: dict[str, Any] = {}  # linear issue id → plane issue pk
 
+    def _progress(self, message: str) -> None:
+        if self.progress_callback is None:
+            logger.info(message)
+            return
+        self.progress_callback(message)
+
     # ------------------------------------------------------------------
     # Public entry point
     # ------------------------------------------------------------------
@@ -105,24 +113,40 @@ class LinearImporter:
     def run(self) -> ImportStats:
         """Execute the full import and return statistics."""
         logger.info("Starting Linear import (dry_run=%s)", self.dry_run)
+        self._progress("Starting Linear import")
 
+        self._progress("Importing users")
         self._import_users()
-        self._import_labels()
+        self._progress(f"Imported users: {self.stats.users_mapped} mapped")
 
+        self._progress("Importing labels")
+        self._import_labels()
+        self._progress(f"Imported labels: {self.stats.labels}")
+
+        self._progress("Fetching teams")
         teams = self.client.fetch_teams()
         if self.team_ids:
             teams = [t for t in teams if t["id"] in self.team_ids]
 
-        for team in teams:
+        self._progress(f"Found {len(teams)} team(s) to process")
+
+        for index, team in enumerate(teams, start=1):
             if self.checkpoint_store and self.checkpoint_store.is_team_done(team["id"]):
-                logger.info("Skipping completed team %s (%s)", team.get("name"), team["id"])
+                self._progress(
+                    f"Skipping completed team {index}/{len(teams)}: {team.get('name')}"
+                )
                 self.stats.skipped += 1
                 continue
+            self._progress(
+                f"Team {index}/{len(teams)}: {team.get('name')} ({team.get('key')})"
+            )
             self._import_team(team)
             if self.checkpoint_store and not self.dry_run:
                 self.checkpoint_store.mark_team_done(team["id"])
+            self._progress(f"Finished team {index}/{len(teams)}: {team.get('name')}")
 
         logger.info("Import finished.\n%s", self.stats.summary())
+        self._progress("Import finished")
         return self.stats
 
     # ------------------------------------------------------------------
@@ -288,7 +312,9 @@ class LinearImporter:
                 self.stats.errors.append(msg)
 
         # Issues (two passes: create, then wire parents)
+        self._progress(f"Fetching issues for {team.get('name')}")
         issues = self.client.fetch_issues_for_team(team["id"])
+        self._progress(f"Fetched {len(issues)} issue(s) for {team.get('name')}")
 
         # Build estimate system for this project before importing issues
         estimate_point_map: dict[float, Any] = {}
@@ -394,10 +420,16 @@ class LinearImporter:
             self._issue_map[str(ext_id)] = pk
 
         # --- Pass 1: create issues without parent links ---
-        for li in linear_issues:
+        total_issues = len(linear_issues)
+        for issue_index, li in enumerate(linear_issues, start=1):
             if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
                 self.stats.skipped += 1
                 continue
+
+            if issue_index == 1 or issue_index % 25 == 0 or issue_index == total_issues:
+                self._progress(
+                    f"Importing issue {issue_index}/{total_issues} in {project.name}: {li.get('identifier', li['id'])}"
+                )
 
             mapped = mapper.map_issue(
                 li,
@@ -502,12 +534,16 @@ class LinearImporter:
                     self.stats.errors.append(msg)
 
         # --- Comments, Attachments, Relations (per issue) ---
-        for li in linear_issues:
+        for issue_index, li in enumerate(linear_issues, start=1):
             if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
                 continue
             plane_issue_pk = self._issue_map.get(li["id"])
             if not plane_issue_pk:
                 continue
+            if issue_index == 1 or issue_index % 25 == 0 or issue_index == len(linear_issues):
+                self._progress(
+                    f"Fetching comments/attachments/relations for issue {issue_index}/{len(linear_issues)}: {li.get('identifier', li['id'])}"
+                )
             self._import_comments(li["id"], plane_issue_pk, project)
             self._import_attachments(li["id"], plane_issue_pk, project)
             self._import_relations(li["id"], plane_issue_pk, project)
