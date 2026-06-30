@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -63,6 +64,17 @@ class Command(BaseCommand):
             default=False,
             help="Reset checkpoint file before import (only with --resume).",
         )
+        parser.add_argument(
+            "--sync",
+            action="store_true",
+            default=False,
+            help=(
+                "Differential sync: only fetch issues updated since the last "
+                "successful sync (stored in checkpoint file). "
+                "Falls back to a full import if no prior sync is recorded. "
+                "Requires --checkpoint-file to be consistent across runs."
+            ),
+        )
 
     def handle(self, **options):
         from plane.db.models import Workspace
@@ -105,9 +117,15 @@ class Command(BaseCommand):
         resume = options["resume"]
         checkpoint_file = options["checkpoint_file"]
         reset_checkpoint = options["reset_checkpoint"]
+        sync_mode = options["sync"]
 
         if reset_checkpoint and not resume:
             raise CommandError("--reset-checkpoint requires --resume.")
+
+        # --sync always needs the checkpoint file to persist last_sync_at;
+        # enable it automatically so the user doesn't have to remember --resume.
+        if sync_mode:
+            resume = True
 
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY-RUN mode — no DB writes."))
@@ -119,10 +137,26 @@ class Command(BaseCommand):
             reset=reset_checkpoint,
         )
 
-        if resume:
+        # Determine the since-datetime for differential sync.
+        since: datetime | None = None
+        if sync_mode:
+            since = checkpoint_store.get_last_sync_at()
+            if since:
+                self.stdout.write(
+                    f"Sync mode: fetching issues updated since {since.isoformat()}"
+                )
+            else:
+                self.stdout.write(
+                    "Sync mode: no previous sync recorded — performing full import"
+                )
+        elif resume:
             self.stdout.write(
                 f"Resume mode enabled (checkpoint: {checkpoint_file})"
             )
+
+        # Record the start time BEFORE fetching so any issues updated during
+        # the run are caught by the next sync (start-time semantics).
+        sync_started_at = datetime.now(timezone.utc)
 
         with LinearClient(api_key) as client:
             # Verify connectivity
@@ -143,8 +177,16 @@ class Command(BaseCommand):
                 dry_run=dry_run,
                 checkpoint_store=checkpoint_store,
                 progress_callback=self.stdout.write,
+                since=since,
             )
             stats = importer.run()
+
+        # Persist last_sync_at on success (even partial — idempotent re-runs are safe).
+        if sync_mode and not dry_run:
+            checkpoint_store.mark_sync_complete(sync_started_at)
+            self.stdout.write(
+                f"Sync complete. Next run will fetch changes after {sync_started_at.isoformat()}"
+            )
 
         self.stdout.write("\n" + stats.summary())
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from . import entity_mapper as mapper
@@ -84,6 +85,7 @@ class LinearImporter:
         dry_run: bool = False,
         checkpoint_store: ImportCheckpointStore | None = None,
         progress_callback: Any | None = None,
+        since: datetime | None = None,
     ):
         self.client = client
         self.workspace_id = workspace_id
@@ -92,6 +94,7 @@ class LinearImporter:
         self.dry_run = dry_run
         self.checkpoint_store = checkpoint_store
         self.progress_callback = progress_callback
+        self.since = since
         self.stats = ImportStats()
 
         # Lookup maps: Linear ID → Plane PK
@@ -312,8 +315,9 @@ class LinearImporter:
                 self.stats.errors.append(msg)
 
         # Issues (two passes: create, then wire parents)
-        self._progress(f"Fetching issues for {team.get('name')}")
-        issues = self.client.fetch_issues_for_team(team["id"])
+        since_label = f" since {self.since.isoformat()}" if self.since else ""
+        self._progress(f"Fetching issues for {team.get('name')}{since_label}")
+        issues = self.client.fetch_issues_for_team(team["id"], since=self.since)
         self._progress(f"Fetched {len(issues)} issue(s) for {team.get('name')}")
 
         # Build estimate system for this project before importing issues
