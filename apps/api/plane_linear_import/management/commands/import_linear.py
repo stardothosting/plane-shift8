@@ -183,10 +183,14 @@ class Command(BaseCommand):
             stats = importer.run()
 
         # Persist last_sync_at on success (even partial — idempotent re-runs are safe).
-        if sync_mode and not dry_run:
+        if sync_mode and not dry_run and not stats.errors:
             checkpoint_store.mark_sync_complete(sync_started_at)
             self.stdout.write(
                 f"Sync complete. Next run will fetch changes after {sync_started_at.isoformat()}"
+            )
+        elif sync_mode and stats.errors:
+            self.stdout.write(
+                "Sync checkpoint not advanced because the import recorded errors."
             )
 
         self.stdout.write("\n" + stats.summary())
