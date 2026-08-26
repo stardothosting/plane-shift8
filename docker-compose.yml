@@ -43,6 +43,8 @@ services:
         DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-api.sh
+    volumes:
+      - linearimportdata:/var/lib/plane-linear-import
     env_file:
       - .env
     depends_on:
@@ -58,6 +60,8 @@ services:
         DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-worker.sh
+    volumes:
+      - linearimportdata:/var/lib/plane-linear-import
     env_file:
       - .env
     depends_on:
@@ -74,6 +78,8 @@ services:
         DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-beat.sh
+    volumes:
+      - linearimportdata:/var/lib/plane-linear-import
     env_file:
       - .env
     depends_on:
@@ -90,6 +96,8 @@ services:
         DOCKER_BUILDKIT: 1
     restart: no
     command: ./bin/docker-entrypoint-migrator.sh
+    volumes:
+      - linearimportdata:/var/lib/plane-linear-import
     env_file:
       - .env
     depends_on:
@@ -185,3 +193,4 @@ volumes:
   redisdata:
   uploads:
   rabbitmq_data:
+  linearimportdata:

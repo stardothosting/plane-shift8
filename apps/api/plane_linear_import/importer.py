@@ -87,6 +87,8 @@ class LinearImporter:
         progress_callback: Any | None = None,
         since: datetime | None = None,
         resume_completed: bool = True,
+        authoritative_sync: bool = False,
+        mirror_mode: bool = False,
     ):
         self.client = client
         self.workspace_id = workspace_id
@@ -97,6 +99,8 @@ class LinearImporter:
         self.progress_callback = progress_callback
         self.since = since
         self.resume_completed = resume_completed
+        self.authoritative_sync = authoritative_sync
+        self.mirror_mode = mirror_mode
         self.stats = ImportStats()
 
         # Lookup maps: Linear ID → Plane PK
@@ -110,6 +114,44 @@ class LinearImporter:
             logger.info(message)
             return
         self.progress_callback(message)
+
+    @staticmethod
+    def _deleted_count(delete_result: Any) -> int:
+        if isinstance(delete_result, tuple):
+            return int(delete_result[0])
+        return int(delete_result or 0)
+
+    def _canonical_relation_tuple(
+        self,
+        relation: dict[str, Any],
+        *,
+        current_linear_issue_id: str,
+    ) -> tuple[Any, Any, str] | None:
+        rel_type = (relation.get("type") or "").lower()
+        related_issue = relation.get("relatedIssue") or {}
+        related_linear_id = related_issue.get("id")
+        if not related_linear_id:
+            return None
+
+        current_pk = self._issue_map.get(current_linear_issue_id)
+        related_pk = self._issue_map.get(related_linear_id)
+        if not current_pk or not related_pk:
+            return None
+
+        if rel_type == "blocks":
+            return related_pk, current_pk, "blocked_by"
+        if rel_type == "blocked_by":
+            return current_pk, related_pk, "blocked_by"
+        if rel_type == "duplicate":
+            if str(current_pk) <= str(related_pk):
+                return current_pk, related_pk, "duplicate"
+            return related_pk, current_pk, "duplicate"
+        if rel_type == "related":
+            if str(current_pk) <= str(related_pk):
+                return current_pk, related_pk, "relates_to"
+            return related_pk, current_pk, "relates_to"
+
+        return None
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -125,8 +167,10 @@ class LinearImporter:
         self._progress(f"Imported users: {self.stats.users_mapped} mapped")
 
         self._progress("Importing labels")
-        self._import_labels()
+        linear_label_ids = self._import_labels()
         self._progress(f"Imported labels: {self.stats.labels}")
+        if self.mirror_mode and not self.dry_run:
+            self._prune_missing_labels(linear_label_ids)
 
         self._progress("Fetching teams")
         teams = self.client.fetch_teams()
@@ -153,6 +197,9 @@ class LinearImporter:
             if self.checkpoint_store and not self.dry_run:
                 self.checkpoint_store.mark_team_done(team["id"])
             self._progress(f"Finished team {index}/{len(teams)}: {team.get('name')}")
+
+        if self.mirror_mode and not self.dry_run:
+            self._prune_missing_projects({team["id"] for team in teams})
 
         logger.info("Import finished.\n%s", self.stats.summary())
         self._progress("Import finished")
@@ -187,7 +234,7 @@ class LinearImporter:
     # Labels
     # ------------------------------------------------------------------
 
-    def _import_labels(self) -> None:
+    def _import_labels(self) -> set[str]:
         """Import workspace-level labels.
 
         Linear has per-team labels with duplicate names (e.g. "Bug" in every
@@ -199,7 +246,9 @@ class LinearImporter:
         from plane.db.models import Label  # noqa: delayed import
 
         linear_labels = self.client.fetch_labels()
+        linear_label_ids: set[str] = set()
         for ll in linear_labels:
+            linear_label_ids.add(ll["id"])
             kwargs = mapper.map_label(ll)
             if self.dry_run:
                 self.stats.labels += 1
@@ -244,6 +293,35 @@ class LinearImporter:
                 msg = f"Label '{ll.get('name')}': {exc}"
                 logger.error(msg)
                 self.stats.errors.append(msg)
+
+        return linear_label_ids
+
+    def _prune_missing_labels(self, linear_label_ids: set[str]) -> None:
+        from plane.db.models import Label  # noqa: delayed import
+
+        queryset = Label.objects.filter(
+            workspace_id=self.workspace_id,
+            project=None,
+            external_source=mapper.EXTERNAL_SOURCE,
+        )
+        if linear_label_ids:
+            queryset = queryset.exclude(external_id__in=linear_label_ids)
+        deleted = self._deleted_count(queryset.delete())
+        if deleted > 0:
+            self._progress(f"Pruned {deleted} label record(s) missing from Linear")
+
+    def _prune_missing_projects(self, linear_team_ids: set[str]) -> None:
+        from plane.db.models import Project  # noqa: delayed import
+
+        queryset = Project.objects.filter(
+            workspace_id=self.workspace_id,
+            external_source=mapper.EXTERNAL_SOURCE,
+        )
+        if linear_team_ids:
+            queryset = queryset.exclude(external_id__in=linear_team_ids)
+        deleted = self._deleted_count(queryset.delete())
+        if deleted > 0:
+            self._progress(f"Pruned {deleted} project record(s) missing from Linear")
 
     # ------------------------------------------------------------------
     # Teams → Projects + States
@@ -292,7 +370,9 @@ class LinearImporter:
 
         # States
         team_state_map: dict[str, Any] = {}
+        linear_state_ids: set[str] = set()
         for ls in team.get("states", {}).get("nodes", []):
+            linear_state_ids.add(ls["id"])
             state_kwargs = mapper.map_state(ls)
             if self.dry_run:
                 self.stats.states += 1
@@ -320,11 +400,17 @@ class LinearImporter:
                 logger.error(msg)
                 self.stats.errors.append(msg)
 
+        if self.mirror_mode and not self.dry_run and project:
+            self._prune_missing_states(project, linear_state_ids)
+
         # Issues (two passes: create, then wire parents)
         since_label = f" since {self.since.isoformat()}" if self.since else ""
         self._progress(f"Fetching issues for {team.get('name')}{since_label}")
         issues = self.client.fetch_issues_for_team(team["id"], since=self.since)
         self._progress(f"Fetched {len(issues)} issue(s) for {team.get('name')}")
+
+        if self.mirror_mode and not self.dry_run and project and self.since is None:
+            self._prune_missing_issues(project, {issue["id"] for issue in issues})
 
         # Build estimate system for this project before importing issues
         estimate_point_map: dict[float, Any] = {}
@@ -332,6 +418,34 @@ class LinearImporter:
             estimate_point_map = self._setup_estimates(issues, project)
 
         self._import_issues(issues, project, team_state_map, estimate_point_map)
+
+    def _prune_missing_states(self, project: Any, linear_state_ids: set[str]) -> None:
+        from plane.db.models import State  # noqa: delayed import
+
+        queryset = State.objects.filter(
+            workspace_id=self.workspace_id,
+            project=project,
+            external_source=mapper.EXTERNAL_SOURCE,
+        )
+        if linear_state_ids:
+            queryset = queryset.exclude(external_id__in=linear_state_ids)
+        deleted = self._deleted_count(queryset.delete())
+        if deleted > 0:
+            self._progress(f"Pruned {deleted} state record(s) missing from Linear in {project.name}")
+
+    def _prune_missing_issues(self, project: Any, linear_issue_ids: set[str]) -> None:
+        from plane.db.models import Issue  # noqa: delayed import
+
+        queryset = Issue.objects.filter(
+            workspace_id=self.workspace_id,
+            project=project,
+            external_source=mapper.EXTERNAL_SOURCE,
+        )
+        if linear_issue_ids:
+            queryset = queryset.exclude(external_id__in=linear_issue_ids)
+        deleted = self._deleted_count(queryset.delete())
+        if deleted > 0:
+            self._progress(f"Pruned {deleted} issue record(s) missing from Linear in {project.name}")
 
     # ------------------------------------------------------------------
     # Estimates
@@ -458,6 +572,8 @@ class LinearImporter:
             est_val = mapped.get("estimate_value")
             if est_val is not None and est_val in estimate_point_map:
                 fields["estimate_point_id"] = estimate_point_map[est_val]
+            elif self.authoritative_sync:
+                fields["estimate_point_id"] = None
 
             try:
                 issue, created = Issue.objects.update_or_create(
@@ -523,6 +639,10 @@ class LinearImporter:
                         },
                     )
 
+                if self.authoritative_sync:
+                    self._reconcile_issue_assignees(issue, project, mapped["assignee_pk"])
+                    self._reconcile_issue_labels(issue, project, mapped["label_pks"])
+
             except Exception as exc:
                 msg = f"Issue '{li.get('identifier', li['id'])}': {exc}"
                 logger.error(msg)
@@ -538,16 +658,24 @@ class LinearImporter:
                 continue
             parent_ref = li.get("parent")
             if not parent_ref:
-                continue
             plane_issue_pk = self._issue_map.get(li["id"])
-            plane_parent_pk = self._issue_map.get(parent_ref["id"])
-            if plane_issue_pk and plane_parent_pk:
+            if not plane_issue_pk:
+                continue
+            plane_parent_pk = self._issue_map.get(parent_ref["id"]) if parent_ref else None
+            if plane_parent_pk:
                 try:
                     Issue.objects.filter(pk=plane_issue_pk).update(
                         parent_id=plane_parent_pk
                     )
                 except Exception as exc:
                     msg = f"Parent link {li['id']}->{parent_ref['id']}: {exc}"
+                    logger.error(msg)
+                    self.stats.errors.append(msg)
+            elif self.authoritative_sync:
+                try:
+                    Issue.objects.filter(pk=plane_issue_pk).update(parent_id=None)
+                except Exception as exc:
+                    msg = f"Parent clear {li['id']}: {exc}"
                     logger.error(msg)
                     self.stats.errors.append(msg)
 
@@ -572,6 +700,34 @@ class LinearImporter:
             if self.checkpoint_store and not self.dry_run:
                 self.checkpoint_store.mark_issue_done(li["id"])
 
+    def _reconcile_issue_assignees(self, issue: Any, project: Any, assignee_pk: Any) -> None:
+        from plane.db.models import IssueAssignee  # noqa: delayed import
+
+        queryset = IssueAssignee.objects.filter(
+            workspace_id=self.workspace_id,
+            project=project,
+            issue=issue,
+        )
+        if assignee_pk:
+            queryset = queryset.exclude(assignee_id=assignee_pk)
+        deleted = self._deleted_count(queryset.delete())
+        if deleted > 0:
+            self._progress(f"Reconciled {deleted} stale assignee record(s) for {issue.name}")
+
+    def _reconcile_issue_labels(self, issue: Any, project: Any, label_pks: list[Any]) -> None:
+        from plane.db.models import IssueLabel  # noqa: delayed import
+
+        queryset = IssueLabel.objects.filter(
+            workspace_id=self.workspace_id,
+            project=project,
+            issue=issue,
+        )
+        if label_pks:
+            queryset = queryset.exclude(label_id__in=label_pks)
+        deleted = self._deleted_count(queryset.delete())
+        if deleted > 0:
+            self._progress(f"Reconciled {deleted} stale label record(s) for {issue.name}")
+
     # ------------------------------------------------------------------
     # Comments
     # ------------------------------------------------------------------
@@ -585,7 +741,9 @@ class LinearImporter:
         from plane.db.models import IssueComment  # noqa: delayed
 
         comments = self.client.fetch_comments_for_issue(linear_issue_id)
+        imported_comment_ids: set[str] = set()
         for lc in comments:
+            imported_comment_ids.add(lc["id"])
             mapped = mapper.map_comment(lc, user_map=self._user_map)
             try:
                 _, created = IssueComment.objects.update_or_create(
@@ -609,6 +767,17 @@ class LinearImporter:
                 logger.error(msg)
                 self.stats.errors.append(msg)
 
+        if self.authoritative_sync:
+            queryset = IssueComment.objects.filter(
+                workspace_id=self.workspace_id,
+                project=project,
+                issue_id=plane_issue_pk,
+                external_source=mapper.EXTERNAL_SOURCE,
+            )
+            if imported_comment_ids:
+                queryset = queryset.exclude(external_id__in=imported_comment_ids)
+            queryset.delete()
+
     # ------------------------------------------------------------------
     # Attachments → IssueLink
     # ------------------------------------------------------------------
@@ -622,23 +791,55 @@ class LinearImporter:
         from plane.db.models import IssueLink  # noqa: delayed
 
         attachments = self.client.fetch_attachments_for_issue(linear_issue_id)
+        imported_attachment_ids: set[str] = set()
         for att in attachments:
             link_kwargs = mapper.map_attachment_to_link(att)
             if not link_kwargs.get("url"):
                 continue
+            imported_attachment_ids.add(att["id"])
             try:
-                _, created = IssueLink.objects.update_or_create(
+                existing = IssueLink.objects.filter(
                     workspace_id=self.workspace_id,
                     project=project,
                     issue_id=plane_issue_pk,
-                    url=link_kwargs["url"],
-                    defaults={
-                        "title": link_kwargs["title"],
-                        "metadata": link_kwargs["metadata"],
-                        "created_by_id": self.owner_id,
-                        "updated_by_id": self.owner_id,
-                    },
-                )
+                    external_source=mapper.EXTERNAL_SOURCE,
+                    external_id=link_kwargs["external_id"],
+                ).first()
+                if existing is None:
+                    existing = IssueLink.objects.filter(
+                        workspace_id=self.workspace_id,
+                        project=project,
+                        issue_id=plane_issue_pk,
+                        url=link_kwargs["url"],
+                        external_source__isnull=True,
+                        external_id__isnull=True,
+                    ).first()
+
+                if existing is None:
+                    IssueLink.objects.create(
+                        workspace_id=self.workspace_id,
+                        project=project,
+                        issue_id=plane_issue_pk,
+                        title=link_kwargs["title"],
+                        url=link_kwargs["url"],
+                        metadata=link_kwargs["metadata"],
+                        external_source=link_kwargs["external_source"],
+                        external_id=link_kwargs["external_id"],
+                        created_by_id=self.owner_id,
+                        updated_by_id=self.owner_id,
+                    )
+                    created = True
+                else:
+                    existing.title = link_kwargs["title"]
+                    existing.url = link_kwargs["url"]
+                    existing.metadata = link_kwargs["metadata"]
+                    existing.external_source = link_kwargs["external_source"]
+                    existing.external_id = link_kwargs["external_id"]
+                    existing.updated_by_id = self.owner_id
+                    if existing.created_by_id is None:
+                        existing.created_by_id = self.owner_id
+                    existing.save()
+                    created = False
                 if created:
                     self.stats.attachments += 1
                 else:
@@ -647,6 +848,17 @@ class LinearImporter:
                 msg = f"Attachment {att['id']} on issue {linear_issue_id}: {exc}"
                 logger.error(msg)
                 self.stats.errors.append(msg)
+
+        if self.authoritative_sync:
+            queryset = IssueLink.objects.filter(
+                workspace_id=self.workspace_id,
+                project=project,
+                issue_id=plane_issue_pk,
+                external_source=mapper.EXTERNAL_SOURCE,
+            )
+            if imported_attachment_ids:
+                queryset = queryset.exclude(external_id__in=imported_attachment_ids)
+            queryset.delete()
 
     # ------------------------------------------------------------------
     # Issue Relations (per issue)
@@ -659,6 +871,7 @@ class LinearImporter:
         project: Any,
     ) -> None:
         from plane.db.models import IssueRelation  # noqa: delayed
+        from django.db.models import Q  # noqa: delayed
 
         try:
             relations = self.client.fetch_relations_for_issue(linear_issue_id)
@@ -666,23 +879,25 @@ class LinearImporter:
             logger.debug("Could not fetch relations for %s: %s", linear_issue_id, exc)
             return
 
+        desired_relations: set[tuple[Any, Any, str]] = set()
         for rel in relations:
-            mapped = mapper.map_issue_relation(
+            mapped = self._canonical_relation_tuple(
                 rel,
-                issue_map=self._issue_map,
                 current_linear_issue_id=linear_issue_id,
             )
             if mapped is None:
                 continue
 
+            desired_relations.add(mapped)
+
             try:
-                _, created = IssueRelation.objects.get_or_create(
+                _, created = IssueRelation.objects.update_or_create(
                     workspace_id=self.workspace_id,
                     project=project,
-                    issue_id=mapped["issue_id"],
-                    related_issue_id=mapped["related_issue_id"],
+                    issue_id=mapped[0],
+                    related_issue_id=mapped[1],
                     defaults={
-                        "relation_type": mapped["relation_type"],
+                        "relation_type": mapped[2],
                         "created_by_id": self.owner_id,
                         "updated_by_id": self.owner_id,
                     },
@@ -695,3 +910,19 @@ class LinearImporter:
                 msg = f"Relation {rel.get('id', '?')}: {exc}"
                 logger.error(msg)
                 self.stats.errors.append(msg)
+
+        if self.authoritative_sync:
+            existing_relations = IssueRelation.objects.filter(
+                workspace_id=self.workspace_id,
+                project=project,
+                issue__external_source=mapper.EXTERNAL_SOURCE,
+                related_issue__external_source=mapper.EXTERNAL_SOURCE,
+            ).filter(Q(issue_id=plane_issue_pk) | Q(related_issue_id=plane_issue_pk))
+            for existing in existing_relations:
+                relation_key = (
+                    existing.issue_id,
+                    existing.related_issue_id,
+                    existing.relation_type,
+                )
+                if relation_key not in desired_relations:
+                    existing.delete()

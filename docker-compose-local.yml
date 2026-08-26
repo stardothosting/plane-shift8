@@ -74,6 +74,7 @@ services:
       - dev_env
     volumes:
       - ./apps/api:/code
+      - linearimportdata:/var/lib/plane-linear-import
     command: ./bin/docker-entrypoint-api-local.sh
     env_file:
       - ./apps/api/.env
@@ -95,6 +96,7 @@ services:
       - dev_env
     volumes:
       - ./apps/api:/code
+      - linearimportdata:/var/lib/plane-linear-import
     command: ./bin/docker-entrypoint-worker.sh
     env_file:
       - ./apps/api/.env
@@ -114,6 +116,7 @@ services:
       - dev_env
     volumes:
       - ./apps/api:/code
+      - linearimportdata:/var/lib/plane-linear-import
     command: ./bin/docker-entrypoint-beat.sh
     env_file:
       - ./apps/api/.env
@@ -133,6 +136,7 @@ services:
       - dev_env
     volumes:
       - ./apps/api:/code
+      - linearimportdata:/var/lib/plane-linear-import
     command: ./bin/docker-entrypoint-migrator.sh --settings=plane.settings.local
     env_file:
       - ./apps/api/.env
@@ -145,6 +149,7 @@ volumes:
   uploads:
   pgdata:
   rabbitmq_data:
+  linearimportdata:
 
 networks:
   dev_env:
