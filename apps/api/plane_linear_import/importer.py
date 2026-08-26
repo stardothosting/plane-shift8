@@ -86,6 +86,7 @@ class LinearImporter:
         checkpoint_store: ImportCheckpointStore | None = None,
         progress_callback: Any | None = None,
         since: datetime | None = None,
+        resume_completed: bool = True,
     ):
         self.client = client
         self.workspace_id = workspace_id
@@ -95,6 +96,7 @@ class LinearImporter:
         self.checkpoint_store = checkpoint_store
         self.progress_callback = progress_callback
         self.since = since
+        self.resume_completed = resume_completed
         self.stats = ImportStats()
 
         # Lookup maps: Linear ID → Plane PK
@@ -134,7 +136,11 @@ class LinearImporter:
         self._progress(f"Found {len(teams)} team(s) to process")
 
         for index, team in enumerate(teams, start=1):
-            if self.checkpoint_store and self.checkpoint_store.is_team_done(team["id"]):
+            if (
+                self.resume_completed
+                and self.checkpoint_store
+                and self.checkpoint_store.is_team_done(team["id"])
+            ):
                 self._progress(
                     f"Skipping completed team {index}/{len(teams)}: {team.get('name')}"
                 )
@@ -426,7 +432,11 @@ class LinearImporter:
         # --- Pass 1: create issues without parent links ---
         total_issues = len(linear_issues)
         for issue_index, li in enumerate(linear_issues, start=1):
-            if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
+            if (
+                self.resume_completed
+                and self.checkpoint_store
+                and self.checkpoint_store.is_issue_done(li["id"])
+            ):
                 self.stats.skipped += 1
                 continue
 
@@ -520,7 +530,11 @@ class LinearImporter:
 
         # --- Pass 2: wire parent links ---
         for li in linear_issues:
-            if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
+            if (
+                self.resume_completed
+                and self.checkpoint_store
+                and self.checkpoint_store.is_issue_done(li["id"])
+            ):
                 continue
             parent_ref = li.get("parent")
             if not parent_ref:
@@ -539,7 +553,11 @@ class LinearImporter:
 
         # --- Comments, Attachments, Relations (per issue) ---
         for issue_index, li in enumerate(linear_issues, start=1):
-            if self.checkpoint_store and self.checkpoint_store.is_issue_done(li["id"]):
+            if (
+                self.resume_completed
+                and self.checkpoint_store
+                and self.checkpoint_store.is_issue_done(li["id"])
+            ):
                 continue
             plane_issue_pk = self._issue_map.get(li["id"])
             if not plane_issue_pk:
