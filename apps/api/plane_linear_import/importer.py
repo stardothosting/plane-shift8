@@ -114,6 +114,7 @@ class LinearImporter:
         owner_id: Any,
         *,
         team_ids: list[str] | None = None,
+        team_keys: list[str] | None = None,
         dry_run: bool = False,
         checkpoint_store: ImportCheckpointStore | None = None,
         progress_callback: Any | None = None,
@@ -127,6 +128,7 @@ class LinearImporter:
         self.workspace_id = workspace_id
         self.owner_id = owner_id
         self.team_ids = team_ids
+        self.team_keys = [key.upper() for key in (team_keys or [])] or None
         self.dry_run = dry_run
         self.checkpoint_store = checkpoint_store
         self.progress_callback = progress_callback
@@ -210,6 +212,8 @@ class LinearImporter:
         teams = self.client.fetch_teams()
         if self.team_ids:
             teams = [t for t in teams if t["id"] in self.team_ids]
+        if self.team_keys:
+            teams = [t for t in teams if (t.get("key") or "").upper() in self.team_keys]
 
         self._progress(f"Found {len(teams)} team(s) to process")
 
