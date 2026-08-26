@@ -134,11 +134,6 @@ class Command(BaseCommand):
         if sync_mode and mirror_mode:
             raise CommandError("Use either --sync or --mirror, not both.")
 
-        if mirror_mode and team_ids:
-            raise CommandError(
-                "--mirror cannot be combined with --team-ids because pruning requires a full org scan."
-            )
-
         if sync_mode or mirror_mode:
             resume = True
 

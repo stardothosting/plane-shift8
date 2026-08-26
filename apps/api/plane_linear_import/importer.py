@@ -198,7 +198,7 @@ class LinearImporter:
                 self.checkpoint_store.mark_team_done(team["id"])
             self._progress(f"Finished team {index}/{len(teams)}: {team.get('name')}")
 
-        if self.mirror_mode and not self.dry_run:
+        if self.mirror_mode and not self.dry_run and not self.team_ids:
             self._prune_missing_projects({team["id"] for team in teams})
 
         logger.info("Import finished.\n%s", self.stats.summary())
