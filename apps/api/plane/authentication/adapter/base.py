@@ -104,7 +104,7 @@ class Adapter:
 
         # Get configuration value
         (ENABLE_SIGNUP,) = get_configuration_value([
-            {"key": "ENABLE_SIGNUP", "default": os.environ.get("ENABLE_SIGNUP", "1")}
+            {"key": "ENABLE_SIGNUP", "default": os.environ.get("ENABLE_SIGNUP", "0")}
         ])
 
         # Check if sign up is disabled and invite is present or not
