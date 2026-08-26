@@ -849,8 +849,7 @@ class LinearImporter:
                     workspace_id=self.workspace_id,
                     project=project,
                     issue_id=plane_issue_pk,
-                    external_source=mapper.EXTERNAL_SOURCE,
-                    external_id=link_kwargs["external_id"],
+                    metadata__linear_id=link_kwargs["external_id"],
                 ).first()
                 if existing is None:
                     existing = IssueLink.objects.filter(
@@ -858,8 +857,6 @@ class LinearImporter:
                         project=project,
                         issue_id=plane_issue_pk,
                         url=link_kwargs["url"],
-                        external_source__isnull=True,
-                        external_id__isnull=True,
                     ).first()
 
                 if existing is None:
@@ -870,8 +867,6 @@ class LinearImporter:
                         title=link_kwargs["title"],
                         url=link_kwargs["url"],
                         metadata=link_kwargs["metadata"],
-                        external_source=link_kwargs["external_source"],
-                        external_id=link_kwargs["external_id"],
                         created_by_id=self.owner_id,
                         updated_by_id=self.owner_id,
                     )
@@ -880,8 +875,6 @@ class LinearImporter:
                     existing.title = link_kwargs["title"]
                     existing.url = link_kwargs["url"]
                     existing.metadata = link_kwargs["metadata"]
-                    existing.external_source = link_kwargs["external_source"]
-                    existing.external_id = link_kwargs["external_id"]
                     existing.updated_by_id = self.owner_id
                     if existing.created_by_id is None:
                         existing.created_by_id = self.owner_id
@@ -901,10 +894,10 @@ class LinearImporter:
                 workspace_id=self.workspace_id,
                 project=project,
                 issue_id=plane_issue_pk,
-                external_source=mapper.EXTERNAL_SOURCE,
+                metadata__linear_id__isnull=False,
             )
             if imported_attachment_ids:
-                queryset = queryset.exclude(external_id__in=imported_attachment_ids)
+                queryset = queryset.exclude(metadata__linear_id__in=imported_attachment_ids)
             queryset.delete()
 
     # ------------------------------------------------------------------

@@ -9,6 +9,7 @@ from plane.db.models import (
     IssueAssignee,
     IssueComment,
     IssueLabel,
+    IssueLink,
     Label,
     Project,
     State,
@@ -21,16 +22,20 @@ from plane_linear_import.importer import LinearImporter
 
 
 class DummyClient:
-    def __init__(self, comments=None):
+    def __init__(self, comments=None, attachments=None):
         self._comments = comments or []
+        self._attachments = attachments or []
 
     def fetch_comments_for_issue(self, linear_issue_id):
         return self._comments
 
+    def fetch_attachments_for_issue(self, linear_issue_id):
+        return self._attachments
 
-def _make_importer(workspace, *, comments=None, authoritative_sync=True):
+
+def _make_importer(workspace, *, comments=None, attachments=None, authoritative_sync=True):
     return LinearImporter(
-        client=DummyClient(comments=comments),
+        client=DummyClient(comments=comments, attachments=attachments),
         workspace_id=workspace.id,
         owner_id=workspace.owner_id,
         authoritative_sync=authoritative_sync,
@@ -188,6 +193,72 @@ def test_authoritative_sync_prunes_removed_comments():
     active_comments = list(IssueComment.objects.filter(issue=issue).values_list("external_id", flat=True))
     assert active_comments == ["c-keep"]
     assert IssueComment.all_objects.get(pk=stale_comment.pk).deleted_at is not None
+
+
+@pytest.mark.django_db
+def test_authoritative_sync_prunes_removed_attachment_links():
+    workspace = WorkspaceFactory()
+    WorkspaceMember.objects.get_or_create(workspace=workspace, member=workspace.owner, role=20)
+    project = ProjectFactory(workspace=workspace, created_by=workspace.owner, updated_by=workspace.owner)
+    state = State.objects.create(
+        workspace=workspace,
+        project=project,
+        name="Todo",
+        color="#000000",
+        group="unstarted",
+        created_by=workspace.owner,
+        updated_by=workspace.owner,
+    )
+    issue = Issue.objects.create(
+        workspace=workspace,
+        project=project,
+        state=state,
+        name="Imported Issue",
+        external_source=mapper.EXTERNAL_SOURCE,
+        external_id="issue-1",
+        created_by=workspace.owner,
+        updated_by=workspace.owner,
+    )
+    IssueLink.objects.create(
+        workspace=workspace,
+        project=project,
+        issue=issue,
+        title="keep",
+        url="https://example.com/keep",
+        metadata={"linear_id": "a-keep"},
+        created_by=workspace.owner,
+        updated_by=workspace.owner,
+    )
+    stale_link = IssueLink.objects.create(
+        workspace=workspace,
+        project=project,
+        issue=issue,
+        title="stale",
+        url="https://example.com/stale",
+        metadata={"linear_id": "a-stale"},
+        created_by=workspace.owner,
+        updated_by=workspace.owner,
+    )
+
+    importer = _make_importer(
+        workspace,
+        attachments=[
+            {
+                "id": "a-keep",
+                "title": "keep updated",
+                "subtitle": "",
+                "url": "https://example.com/keep",
+                "metadata": {},
+                "source": {"type": "linear"},
+                "createdAt": None,
+            }
+        ],
+    )
+    importer._import_attachments("issue-1", issue.pk, project)
+
+    active_links = list(IssueLink.objects.filter(issue=issue).values_list("metadata", flat=True))
+    assert [metadata.get("linear_id") for metadata in active_links] == ["a-keep"]
+    assert IssueLink.all_objects.get(pk=stale_link.pk).deleted_at is not None
 
 
 @pytest.mark.django_db
