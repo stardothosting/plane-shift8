@@ -705,7 +705,6 @@ class LinearImporter:
             ):
                 continue
             parent_ref = li.get("parent")
-            if not parent_ref:
             plane_issue_pk = self._issue_map.get(li["id"])
             if not plane_issue_pk:
                 continue
