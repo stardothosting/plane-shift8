@@ -37,6 +37,11 @@ class Command(BaseCommand):
             help="Comma-separated list of Linear team IDs to import (default: all).",
         )
         parser.add_argument(
+            "--team-keys",
+            default="",
+            help="Comma-separated list of Linear team keys to import, e.g. PCN,S8W.",
+        )
+        parser.add_argument(
             "--dry-run",
             action="store_true",
             default=False,
@@ -133,6 +138,12 @@ class Command(BaseCommand):
         team_ids = [
             t.strip() for t in options["team_ids"].split(",") if t.strip()
         ] or None
+        team_keys = [
+            t.strip().upper() for t in options["team_keys"].split(",") if t.strip()
+        ] or None
+
+        if team_ids and team_keys:
+            raise CommandError("Use either --team-ids or --team-keys, not both.")
 
         dry_run = options["dry_run"]
         resume = options["resume"]
@@ -207,6 +218,7 @@ class Command(BaseCommand):
                 workspace_id=workspace.pk,
                 owner_id=workspace.owner_id,
                 team_ids=team_ids,
+                team_keys=team_keys,
                 dry_run=dry_run,
                 checkpoint_store=checkpoint_store,
                 progress_callback=self.stdout.write,
