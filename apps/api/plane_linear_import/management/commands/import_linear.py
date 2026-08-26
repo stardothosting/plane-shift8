@@ -55,8 +55,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--checkpoint-file",
-            default=".linear-import-checkpoint.json",
-            help="Path to checkpoint JSON file used with --resume.",
+            default="/var/lib/plane-linear-import/checkpoint.json",
+            help="Path to checkpoint JSON file used with --resume/--sync/--mirror.",
         )
         parser.add_argument(
             "--reset-checkpoint",
@@ -73,6 +73,17 @@ class Command(BaseCommand):
                 "successful sync (stored in checkpoint file). "
                 "Falls back to a full import if no prior sync is recorded. "
                 "Requires --checkpoint-file to be consistent across runs."
+            ),
+        )
+        parser.add_argument(
+            "--mirror",
+            action="store_true",
+            default=False,
+            help=(
+                "Authoritative full mirror from Linear into Plane. "
+                "Performs a full fetch, reconciles stale assignees/labels/comments/"
+                "attachments/relations on processed issues, and prunes imported "
+                "labels, states, issues, and projects that no longer exist in Linear."
             ),
         )
 
@@ -118,14 +129,21 @@ class Command(BaseCommand):
         checkpoint_file = options["checkpoint_file"]
         reset_checkpoint = options["reset_checkpoint"]
         sync_mode = options["sync"]
+        mirror_mode = options["mirror"]
+
+        if sync_mode and mirror_mode:
+            raise CommandError("Use either --sync or --mirror, not both.")
+
+        if mirror_mode and team_ids:
+            raise CommandError(
+                "--mirror cannot be combined with --team-ids because pruning requires a full org scan."
+            )
+
+        if sync_mode or mirror_mode:
+            resume = True
 
         if reset_checkpoint and not resume:
             raise CommandError("--reset-checkpoint requires --resume.")
-
-        # --sync always needs the checkpoint file to persist last_sync_at;
-        # enable it automatically so the user doesn't have to remember --resume.
-        if sync_mode:
-            resume = True
 
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY-RUN mode — no DB writes."))
@@ -149,6 +167,15 @@ class Command(BaseCommand):
                 self.stdout.write(
                     "Sync mode: no previous sync recorded — performing full import"
                 )
+        elif mirror_mode:
+            last_sync_at = checkpoint_store.get_last_sync_at()
+            if last_sync_at:
+                self.stdout.write(
+                    f"Mirror mode: last successful sync was {last_sync_at.isoformat()}"
+                )
+            self.stdout.write(
+                "Mirror mode: performing authoritative full reconciliation against Linear"
+            )
         elif resume:
             self.stdout.write(
                 f"Resume mode enabled (checkpoint: {checkpoint_file})"
@@ -178,17 +205,19 @@ class Command(BaseCommand):
                 checkpoint_store=checkpoint_store,
                 progress_callback=self.stdout.write,
                 since=since,
-                resume_completed=not sync_mode,
+                resume_completed=not (sync_mode or mirror_mode),
+                authoritative_sync=sync_mode or mirror_mode,
+                mirror_mode=mirror_mode,
             )
             stats = importer.run()
 
-        # Persist last_sync_at on success (even partial — idempotent re-runs are safe).
-        if sync_mode and not dry_run and not stats.errors:
+        # Persist last_sync_at only after a fully successful sync or mirror run.
+        if (sync_mode or mirror_mode) and not dry_run and not stats.errors:
             checkpoint_store.mark_sync_complete(sync_started_at)
             self.stdout.write(
-                f"Sync complete. Next run will fetch changes after {sync_started_at.isoformat()}"
+                f"Synchronization complete. Next differential sync will fetch changes after {sync_started_at.isoformat()}"
             )
-        elif sync_mode and stats.errors:
+        elif (sync_mode or mirror_mode) and stats.errors:
             self.stdout.write(
                 "Sync checkpoint not advanced because the import recorded errors."
             )
