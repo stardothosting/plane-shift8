@@ -86,6 +86,16 @@ class Command(BaseCommand):
                 "labels, states, issues, and projects that no longer exist in Linear."
             ),
         )
+        parser.add_argument(
+            "--linear-estimate-scale",
+            choices=["auto", "points", "tshirt"],
+            default="auto",
+            help=(
+                "How to interpret Linear numeric estimate values. "
+                "Use 'tshirt' to map 1..5 to XS,S,M,L,XL, 'points' to keep numeric values, "
+                "or 'auto' to infer tshirt mode when values are within 1..5."
+            ),
+        )
 
     def handle(self, **options):
         from plane.db.models import Workspace
@@ -130,6 +140,7 @@ class Command(BaseCommand):
         reset_checkpoint = options["reset_checkpoint"]
         sync_mode = options["sync"]
         mirror_mode = options["mirror"]
+        linear_estimate_scale = options["linear_estimate_scale"]
 
         if sync_mode and mirror_mode:
             raise CommandError("Use either --sync or --mirror, not both.")
@@ -203,6 +214,7 @@ class Command(BaseCommand):
                 resume_completed=not (sync_mode or mirror_mode),
                 authoritative_sync=sync_mode or mirror_mode,
                 mirror_mode=mirror_mode,
+                estimate_scale=linear_estimate_scale,
             )
             stats = importer.run()
 
