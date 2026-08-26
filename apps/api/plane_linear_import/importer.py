@@ -9,13 +9,45 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from . import entity_mapper as mapper
 from .checkpoint import ImportCheckpointStore
 from .linear_client import LinearClient
 
 logger = logging.getLogger(__name__)
+
+TShirtEstimateScale = {
+    1: "XS",
+    2: "S",
+    3: "M",
+    4: "L",
+    5: "XL",
+}
+
+
+def resolve_linear_estimate_scale(
+    values: set[float],
+    estimate_scale: Literal["auto", "points", "tshirt"],
+) -> tuple[str, str, list[tuple[int, str]], dict[float, int]]:
+    """Return the Plane estimate definition for the given Linear values.
+
+    Returns: (estimate_name, estimate_type, estimate_points, linear_value_to_key)
+    where estimate_points is a list of (key, display_value).
+    """
+    normalized_values = sorted(values)
+    use_tshirt = estimate_scale == "tshirt" or (
+        estimate_scale == "auto" and set(normalized_values).issubset({1, 2, 3, 4, 5})
+    )
+
+    if use_tshirt:
+        point_values = [(index, TShirtEstimateScale[index]) for index in sorted(TShirtEstimateScale)]
+        value_map = {float(index): index for index in TShirtEstimateScale}
+        return "T-Shirt Sizes", "categories", point_values, value_map
+
+    point_values = [(idx + 1, str(val)) for idx, val in enumerate(normalized_values)]
+    linear_value_map = {float(val): idx + 1 for idx, val in enumerate(normalized_values)}
+    return "Linear Estimates", "points", point_values, linear_value_map
 
 
 @dataclass
@@ -89,6 +121,7 @@ class LinearImporter:
         resume_completed: bool = True,
         authoritative_sync: bool = False,
         mirror_mode: bool = False,
+        estimate_scale: Literal["auto", "points", "tshirt"] = "auto",
     ):
         self.client = client
         self.workspace_id = workspace_id
@@ -101,6 +134,7 @@ class LinearImporter:
         self.resume_completed = resume_completed
         self.authoritative_sync = authoritative_sync
         self.mirror_mode = mirror_mode
+        self.estimate_scale = estimate_scale
         self.stats = ImportStats()
 
         # Lookup maps: Linear ID → Plane PK
@@ -466,19 +500,27 @@ class LinearImporter:
         if not values:
             return {}
 
+        estimate_name, estimate_type, estimate_points, linear_value_map = resolve_linear_estimate_scale(
+            set(values), self.estimate_scale
+        )
+
         try:
             estimate, _ = Estimate.objects.update_or_create(
                 workspace_id=self.workspace_id,
                 project=project,
-                name="Linear Estimates",
+                name=estimate_name,
                 defaults={
                     "description": "Imported from Linear",
-                    "type": "points",
+                    "type": estimate_type,
                     "last_used": True,
                     "created_by_id": self.owner_id,
                     "updated_by_id": self.owner_id,
                 },
             )
+            if project.estimate_id != estimate.pk:
+                project.estimate = estimate
+                project.updated_by_id = self.owner_id
+                project.save(update_fields=["estimate", "updated_by", "updated_at"])
         except Exception as exc:
             msg = f"Estimate setup for project {project}: {exc}"
             logger.error(msg)
@@ -486,24 +528,26 @@ class LinearImporter:
             return {}
 
         point_map: dict[float, Any] = {}
-        for idx, val in enumerate(values):
+        for key, display_value in estimate_points:
             try:
                 ep, created = EstimatePoint.objects.update_or_create(
                     workspace_id=self.workspace_id,
                     project=project,
                     estimate=estimate,
-                    key=idx,
+                    key=key,
                     defaults={
-                        "value": str(val),
+                        "value": display_value,
                         "created_by_id": self.owner_id,
                         "updated_by_id": self.owner_id,
                     },
                 )
-                point_map[val] = ep.pk
+                for linear_value, mapped_key in linear_value_map.items():
+                    if mapped_key == key:
+                        point_map[linear_value] = ep.pk
                 if created:
                     self.stats.estimates += 1
             except Exception as exc:
-                msg = f"EstimatePoint {val}: {exc}"
+                msg = f"EstimatePoint {display_value}: {exc}"
                 logger.error(msg)
                 self.stats.errors.append(msg)
 

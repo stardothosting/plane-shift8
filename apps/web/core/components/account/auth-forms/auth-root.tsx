@@ -53,6 +53,10 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
   const { isOAuthEnabled, oAuthOptions } = useOAuthConfig(oAuthActionText);
   const isEmailBasedAuthEnabled = config?.is_email_password_enabled || config?.is_magic_login_enabled;
   const noAuthMethodsAvailable = !isOAuthEnabled && !isEmailBasedAuthEnabled;
+  const isInviteOnlySignup =
+    authMode === EAuthModes.SIGN_UP &&
+    config?.enable_signup === false &&
+    !(workspaceSlug && invitation_id);
 
   useEffect(() => {
     if (!authMode && currentAuthMode) setAuthMode(currentAuthMode);
@@ -108,6 +112,17 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
         <AuthHeaderBase
           header="No authentication methods available"
           subHeader="Please contact your administrator to enable authentication for your instance."
+        />
+      </AuthContainer>
+    );
+  }
+
+  if (isInviteOnlySignup) {
+    return (
+      <AuthContainer>
+        <AuthHeaderBase
+          header="Invite only"
+          subHeader="Account creation is disabled for this instance. Ask an administrator for a workspace invitation."
         />
       </AuthContainer>
     );
