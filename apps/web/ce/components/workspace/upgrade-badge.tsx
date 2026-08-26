@@ -7,6 +7,7 @@
 // helpers
 import { useTranslation } from "@plane/i18n";
 import { cn } from "@plane/utils";
+import { useInstance } from "@/hooks/store/use-instance";
 
 type TUpgradeBadge = {
   className?: string;
@@ -17,6 +18,9 @@ export function UpgradeBadge(props: TUpgradeBadge) {
   const { className, size = "sm" } = props;
 
   const { t } = useTranslation();
+  const { config } = useInstance();
+
+  if (config?.is_self_managed) return null;
 
   return (
     <div
