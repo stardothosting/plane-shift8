@@ -178,6 +178,7 @@ class Command(BaseCommand):
                 checkpoint_store=checkpoint_store,
                 progress_callback=self.stdout.write,
                 since=since,
+                resume_completed=not sync_mode,
             )
             stats = importer.run()
 
