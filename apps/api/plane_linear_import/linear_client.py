@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -16,8 +15,10 @@ logger = logging.getLogger(__name__)
 
 LINEAR_API_URL = "https://api.linear.app/graphql"
 DEFAULT_PAGE_SIZE = 50
-# Linear allows 1 500 complexity points / minute.  We stay conservative.
-RATE_LIMIT_SLEEP_SECONDS = 10
+# Linear refills rate-limit tokens continuously, so do not wait for the full
+# hourly window reset when a GraphQL error only reports resetAt.
+RATE_LIMIT_SLEEP_SECONDS = 15
+MAX_RATE_LIMIT_SLEEP_SECONDS = 60
 TRANSIENT_RETRY_SLEEP_SECONDS = 2
 MAX_RETRIES = 20
 
@@ -88,35 +89,16 @@ class LinearClient:
             return max(int(retry_after), RATE_LIMIT_SLEEP_SECONDS)
         return None
 
-    @staticmethod
-    def _reset_at_wait(errors: list[dict[str, Any]]) -> int | None:
-        # Fall back to GraphQL extension metadata if available.
-        for err in errors:
-            ext = err.get("extensions") or {}
-            result = ((ext.get("meta") or {}).get("rateLimitResult") or {})
-            reset_at = result.get("resetAt")
-            if not isinstance(reset_at, str):
-                continue
-            try:
-                reset_dt = datetime.fromisoformat(reset_at.replace("Z", "+00:00"))
-                remaining = int((reset_dt - datetime.now(timezone.utc)).total_seconds())
-                if remaining > 0:
-                    return max(remaining + 1, RATE_LIMIT_SLEEP_SECONDS)
-            except ValueError:
-                continue
-        return None
-
     @classmethod
-    def _rate_limit_sleep_seconds(cls, resp: httpx.Response, errors: list[dict[str, Any]]) -> int:
+    def _rate_limit_sleep_seconds(
+        cls, resp: httpx.Response, attempt: int
+    ) -> int:
+        """Return a bounded wait for Linear's continuously refilling limiter."""
         retry_after_wait = cls._retry_after_wait(resp)
         if retry_after_wait is not None:
             return retry_after_wait
 
-        reset_at_wait = cls._reset_at_wait(errors)
-        if reset_at_wait is not None:
-            return reset_at_wait
-
-        return RATE_LIMIT_SLEEP_SECONDS
+        return min(RATE_LIMIT_SLEEP_SECONDS * attempt, MAX_RATE_LIMIT_SLEEP_SECONDS)
 
     def execute(
         self,
@@ -149,7 +131,7 @@ class LinearClient:
             errors = self._errors_from_response(resp)
 
             if self._is_rate_limited(resp, errors):
-                sleep_for = self._rate_limit_sleep_seconds(resp, errors)
+                sleep_for = self._rate_limit_sleep_seconds(resp, attempt)
                 logger.warning(
                     "Rate-limited by Linear (attempt %d/%d), sleeping %ds",
                     attempt,
