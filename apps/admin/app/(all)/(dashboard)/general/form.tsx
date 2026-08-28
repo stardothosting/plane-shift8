@@ -28,6 +28,7 @@ export const GeneralConfigurationForm = observer(function GeneralConfigurationFo
 
   // form data
   const {
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<Partial<IInstance>>({
